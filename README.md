@@ -2,7 +2,7 @@
 
 Pebble StrongLifts is a proposed workout tracker for the current Pebble watch lineup. It is intentionally limited to the standard StrongLifts 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
 
-The second watch-only vertical slice is implemented. It provides persistent Workout A/B state, set completion, interruption-safe resume, completion alternation, and confirmed abandonment.
+The third watch-only vertical slice is implemented. It adds a persistent three-minute rest timer between work sets, halfway and completion vibration feedback, interruption-safe timer resume, and safe expiration/skip handling.
 
 ## Documentation
 
@@ -19,7 +19,7 @@ The watch must remain useful without a phone connection. The bundled phone-side 
 
 ## Current status
 
-The first two watch-only vertical slices are implemented. The watchapp is written in C, works without phone data, and includes only a minimal PebbleKit JS message acknowledgment foundation. The second slice displays the next fixed Workout A or B, records prescribed sets, resumes an active workout after interruption, saves completion, and alternates the next workout. During an active workout, hold Back for one second to request abandonment, then press Select to confirm; the same workout remains next.
+The first three watch-only vertical slices are implemented. The watchapp is written in C, works without phone data, and includes only a minimal PebbleKit JS message acknowledgment foundation. The third slice starts a 180-second rest after non-final work sets, shows the upcoming set, vibrates once halfway and twice at completion, persists timestamps, and resumes or safely clears rest after interruption. During an active workout, hold Back for one second to request abandonment, then press Select to confirm; the same workout remains next.
 
 The project uses the current Pebble SDK project layout:
 
