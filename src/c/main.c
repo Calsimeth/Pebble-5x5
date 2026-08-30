@@ -3,7 +3,7 @@
 
 enum {
   STORAGE_KEY_STATE = 1,
-  STORAGE_SCHEMA_VERSION = 3,
+  STORAGE_SCHEMA_VERSION = 4,
   REST_SECONDS = 180,
 };
 
@@ -26,6 +26,7 @@ typedef struct {
   int32_t rest_end;
   uint8_t halfway_alerted;
   Weight weights[5];
+  PlateCounts inventory_counts;
 } PersistedState;
 
 typedef struct {
@@ -44,6 +45,12 @@ typedef struct {
   uint8_t halfway_alerted;
 } PersistedStateV2;
 
+typedef struct {
+  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
+  uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
+  Weight weights[5];
+} PersistedStateV3;
+
 static const ExerciseDefinition WORKOUTS[2][3] = {
   {{"Squat", 5}, {"Bench", 5}, {"Row", 5}},
   {{"Squat", 5}, {"OHP", 5}, {"Deadlift", 1}},
@@ -57,10 +64,17 @@ static PersistedState s_state;
 static bool s_saved;
 static bool s_confirm_abandon;
 static bool s_show_plates;
+static bool s_setup;
+static bool s_weights_adjusted;
+static uint8_t s_setup_item;
 static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
+static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
+static PlateInventory current_inventory(void) { return plate_inventory_from_counts(s_state.inventory_counts); }
+
+static const char *SETUP_WEIGHT_NAMES[5] = {"Squat", "Bench", "Row", "OHP", "Deadlift"};
 
 static size_t exercise_weight_index(uint8_t workout, uint8_t exercise) {
   return exercise == 0 ? 0 : (workout == WORKOUT_A ? exercise : exercise + 1);
@@ -149,6 +163,7 @@ static void initialize_state(void) {
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
   s_state.next_workout = WORKOUT_A;
   memcpy(s_state.weights, DEFAULT_WEIGHTS, sizeof DEFAULT_WEIGHTS);
+  memcpy(s_state.inventory_counts, DEFAULT_COUNTS, sizeof DEFAULT_COUNTS);
   save_state();
 }
 
@@ -187,6 +202,23 @@ static void load_state(void) {
       return;
     }
   }
+  if (version == 3) {
+    PersistedStateV3 old;
+    if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
+        old.next_workout <= WORKOUT_B && old.active_workout <= WORKOUT_B && old.active <= 1) {
+      memset(&s_state, 0, sizeof(s_state));
+      s_state.next_workout = old.next_workout; s_state.active = old.active;
+      s_state.active_workout = old.active_workout; s_state.exercise_index = old.exercise_index;
+      s_state.set_index = old.set_index; s_state.rest_active = old.rest_active;
+      s_state.rest_start = old.rest_start; s_state.rest_end = old.rest_end;
+      s_state.halfway_alerted = old.halfway_alerted;
+      memcpy(s_state.weights, old.weights, sizeof old.weights);
+      memcpy(s_state.inventory_counts, DEFAULT_COUNTS, sizeof DEFAULT_COUNTS);
+      save_state();
+      if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
+      return;
+    }
+  }
   if (persist_exists(STORAGE_KEY_STATE) &&
       persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state)) == sizeof(s_state) &&
       s_state.schema_version == STORAGE_SCHEMA_VERSION &&
@@ -197,6 +229,7 @@ static void load_state(void) {
       (!s_state.rest_active || (s_state.active &&
        s_state.exercise_index < 3 && s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets))) {
     for (size_t n = 0; n < 5; n++) if (!weight_valid(s_state.weights[n])) s_state.weights[n] = DEFAULT_WEIGHTS[n];
+    for (size_t n = 0; n < PLATE_MAX_SIZES; n++) if (s_state.inventory_counts[n] > 2) s_state.inventory_counts[n] = DEFAULT_COUNTS[n];
     if (s_state.rest_active) {
       if (rest_values_valid(time(NULL))) start_rest_services();
       else { clear_rest(); save_state(); }
@@ -207,6 +240,22 @@ static void load_state(void) {
 }
 
 static void update_display(void) {
+  if (s_setup) {
+    if (s_setup_item < 5) {
+      char weight[16]; weight_format(s_state.weights[s_setup_item], weight, sizeof weight);
+      snprintf(s_exercise_text, sizeof s_exercise_text, "%s\n%s\nQuarter lb", SETUP_WEIGHT_NAMES[s_setup_item], weight);
+      text_layer_set_text(s_title_layer, "Set Weight");
+    } else {
+      PlateInventory inventory = current_inventory(); size_t n = s_setup_item - 5; char size[16]; weight_format(inventory.plates[n].size, size, sizeof size);
+      snprintf(s_exercise_text, sizeof s_exercise_text, "%s\nCount / side: %d", size, s_state.inventory_counts[n]);
+      text_layer_set_text(s_title_layer, "Set Plates");
+    }
+    text_layer_set_text(s_exercise_layer, s_exercise_text);
+    snprintf(s_hint_text, sizeof s_hint_text, "Sel: next  Up/Down");
+    text_layer_set_text(s_hint_layer, s_hint_text);
+    return;
+  }
+  if (s_weights_adjusted) { text_layer_set_text(s_title_layer, "Weights adjusted"); s_weights_adjusted = false; }
   WorkoutType workout = s_state.active ? s_state.active_workout : s_state.next_workout;
 
   if (s_saved) {
@@ -230,7 +279,7 @@ static void update_display(void) {
   }
 
   if (s_show_plates && s_state.active) {
-    PlateInventory inventory = plate_inventory_default();
+    PlateInventory inventory = current_inventory();
     PlateLoad load = calculate_plate_load(current_weight(s_state.active_workout, s_state.exercise_index), &inventory);
     char side[64]; format_plate_side(&inventory, &load, side, sizeof side);
     char actual[16]; weight_format(load.actual_total, actual, sizeof actual);
@@ -240,7 +289,8 @@ static void update_display(void) {
     text_layer_set_text(s_hint_layer, "Select: back"); return;
   }
 
-  text_layer_set_text(s_title_layer, workout_name(workout));
+  text_layer_set_text(s_title_layer, s_weights_adjusted ? "Weights adjusted" : workout_name(workout));
+  s_weights_adjusted = false;
   if (!s_state.active) {
     char w0[16], w1[16], w2[16];
     weight_format(current_weight(workout, 0), w0, sizeof w0);
@@ -249,7 +299,7 @@ static void update_display(void) {
     snprintf(s_exercise_text, sizeof(s_exercise_text), "%s %s\n%s %s\n%s %s",
              WORKOUTS[workout][0].name, w0, WORKOUTS[workout][1].name, w1,
              WORKOUTS[workout][2].name, w2);
-    snprintf(s_hint_text, sizeof(s_hint_text), "Select: start");
+    snprintf(s_hint_text, sizeof(s_hint_text), "Sel:start Dn:setup");
   } else {
     const ExerciseDefinition *current = &WORKOUTS[workout][s_state.exercise_index];
     char weight[16]; weight_format(current_weight(workout, s_state.exercise_index), weight, sizeof weight);
@@ -290,6 +340,11 @@ static void complete_set(void) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_setup) {
+    s_setup_item = (s_setup_item + 1) % 12;
+    update_display();
+    return;
+  }
   if (s_show_plates) { s_show_plates = false; update_display(); return; }
   if (s_saved) {
     s_saved = false;
@@ -320,10 +375,33 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void up_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_setup) {
+    if (s_setup_item < 5) { PlateInventory inventory = current_inventory(); s_state.weights[s_setup_item] = next_achievable_total(s_state.weights[s_setup_item], &inventory); }
+    else if (s_state.inventory_counts[s_setup_item - 5] < 2) {
+      s_state.inventory_counts[s_setup_item - 5]++;
+    }
+    save_state(); update_display(); return;
+  }
   if (s_state.active && !s_state.rest_active && !s_confirm_abandon) { s_show_plates = !s_show_plates; update_display(); }
 }
 
+static void down_click(ClickRecognizerRef recognizer, void *context) {
+  if (!s_setup) { if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); } return; }
+  if (s_setup_item < 5) {
+    { PlateInventory inventory = current_inventory(); s_state.weights[s_setup_item] = previous_achievable_total(s_state.weights[s_setup_item], &inventory); }
+  } else if (s_state.inventory_counts[s_setup_item - 5] > 0) {
+    s_state.inventory_counts[s_setup_item - 5]--;
+  }
+  { PlateInventory inventory = current_inventory(); bool changed = false;
+    for (size_t n = 0; n < 5; n++) { Weight old = s_state.weights[n]; s_state.weights[n] = normalize_weight_down(old, &inventory); changed |= old != s_state.weights[n]; }
+    save_state();
+    s_weights_adjusted = changed;
+  }
+  update_display();
+}
+
 static void back_long_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
     if (s_state.rest_active) { clear_rest(); save_state(); }
     s_confirm_abandon = true;
@@ -331,10 +409,16 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
+static void up_long_click(ClickRecognizerRef recognizer, void *context) {
+  if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
+}
+
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
   window_single_click_subscribe(BUTTON_ID_UP, up_click);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
   window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, NULL);
+  window_long_click_subscribe(BUTTON_ID_UP, 1000, up_long_click, NULL);
 }
 
 static void window_load(Window *window) {

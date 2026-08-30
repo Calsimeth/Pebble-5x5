@@ -16,6 +16,7 @@ typedef struct {
 } Plate;
 
 #define PLATE_MAX_SIZES 7
+typedef uint8_t PlateCounts[PLATE_MAX_SIZES];
 typedef struct { Plate plates[PLATE_MAX_SIZES]; size_t count; Weight bar_weight; } PlateInventory;
 
 typedef struct {
@@ -31,8 +32,16 @@ bool weight_valid(Weight weight);
 int weight_compare(Weight a, Weight b);
 size_t weight_format(Weight weight, char *buffer, size_t buffer_size);
 PlateInventory plate_inventory_default(void);
+bool plate_inventory_valid(const PlateInventory *inventory);
+PlateInventory plate_inventory_from_counts(const PlateCounts counts);
+void plate_inventory_counts(const PlateInventory *inventory, PlateCounts counts);
 PlateLoad calculate_plate_load(Weight requested_total, const PlateInventory *inventory);
+Weight next_achievable_total(Weight current, const PlateInventory *inventory);
+Weight previous_achievable_total(Weight current, const PlateInventory *inventory);
+Weight normalize_weight_down(Weight requested, const PlateInventory *inventory);
 size_t format_plate_side(const PlateInventory *inventory, const PlateLoad *load,
                          char *buffer, size_t buffer_size);
+size_t format_plate_loading(const PlateInventory *inventory, const PlateLoad *load,
+                            char *buffer, size_t buffer_size);
 
 #endif

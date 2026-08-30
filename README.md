@@ -2,7 +2,7 @@
 
 Pebble StrongLifts is a proposed workout tracker for the current Pebble watch lineup. It is intentionally limited to the standard StrongLifts 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
 
-The fourth watch-only vertical slice adds persistent quarter-pound working weights and a deterministic symmetrical per-side plate calculator. It retains the persistent three-minute rest timer, interruption-safe resume, and established black, white, and red visual system; Flint uses clear white monochrome equivalents for those accents.
+Slice five is complete: the watch supports offline working-weight setup and per-side plate inventory setup. Weights remain quarter-pound integers, but edits move only between achievable symmetrical loads.
 
 ## Documentation
 
@@ -19,7 +19,7 @@ The watch must remain useful without a phone connection. The bundled phone-side 
 
 ## Current status
 
-The first four watch-only vertical slices are implemented. Working weights are stored as quarter-pound scaled integers (45 lb = 180 units), with defaults of Squat 45, Bench 45, Row 65, OHP 45, and Deadlift 95 lb. Plate inventory configuration, progression, warm-ups, history synchronization, and CSV import/export remain future work. During an active workout, hold Back for one second to request abandonment, then press Select to confirm; the same workout remains next.
+The first five watch-only vertical slices are implemented. Working weights are stored as quarter-pound scaled integers (45 lb = 180 units), with defaults of Squat 45, Bench 45, Row 65, OHP 45, and Deadlift 95 lb. From the inactive overview, press Down to open setup; Select advances fields and Up/Down changes the selected weight or per-side plate count. Back leaves setup. Inventory defaults to 45:2, 35:0, 25:2, 15:0, 10:2, 5:2, and 2.5:2 plates per side. Inventory changes normalize affected weights downward. During an active workout, hold Back for one second to request abandonment, then press Select to confirm; the same workout remains next.
 
 The project uses the current Pebble SDK project layout:
 
@@ -93,6 +93,6 @@ pebble install --emulator gabbro
 
 Workers must report the build and emulator result for each target. They should not commit `/build/`, `.lock-waf_linux_build`, SDK files, emulator state, or other generated output. If an emulator command hangs, stop only that command and retry the affected platform; a transient WebSocket disconnect does not imply a source or build failure.
 
-With the SDL2 runtime installed, the first slice was built and installed successfully in the Flint, Emery, and Gabbro emulators. Emulator validation for the second slice is recorded only when performed.
+The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed.
 
-The remaining product work is described in [the development discussion guide](docs/development-guide.md). Weights, plates, warm-ups, progression, timers, deloading, history synchronization, and CSV import/export are intentionally not part of this second slice.
+The remaining product work is described in [the development discussion guide](docs/development-guide.md). Warm-ups, progression, deloading, history synchronization, and CSV import/export remain future work; weights, plates, and timers are implemented.
