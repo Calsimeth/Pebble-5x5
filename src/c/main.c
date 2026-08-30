@@ -1,8 +1,9 @@
 #include <pebble.h>
+#include "plates.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
-  STORAGE_SCHEMA_VERSION = 2,
+  STORAGE_SCHEMA_VERSION = 3,
   REST_SECONDS = 180,
 };
 
@@ -24,6 +25,7 @@ typedef struct {
   int32_t rest_start;
   int32_t rest_end;
   uint8_t halfway_alerted;
+  Weight weights[5];
 } PersistedState;
 
 typedef struct {
@@ -34,6 +36,13 @@ typedef struct {
   uint8_t exercise_index;
   uint8_t set_index;
 } LegacyState;
+
+typedef struct {
+  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
+  uint8_t rest_active;
+  int32_t rest_start, rest_end;
+  uint8_t halfway_alerted;
+} PersistedStateV2;
 
 static const ExerciseDefinition WORKOUTS[2][3] = {
   {{"Squat", 5}, {"Bench", 5}, {"Row", 5}},
@@ -47,9 +56,20 @@ static TextLayer *s_hint_layer;
 static PersistedState s_state;
 static bool s_saved;
 static bool s_confirm_abandon;
+static bool s_show_plates;
 static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
+static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
+
+static size_t exercise_weight_index(uint8_t workout, uint8_t exercise) {
+  return exercise == 0 ? 0 : (workout == WORKOUT_A ? exercise : exercise + 1);
+}
+
+static Weight current_weight(uint8_t workout, uint8_t exercise) {
+  size_t index = exercise_weight_index(workout, exercise);
+  return weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
+}
 
 // Black canvas, white content, and red accents (white on Flint).
 static GColor palette_background(void) { return GColorBlack; }
@@ -128,6 +148,7 @@ static void initialize_state(void) {
   memset(&s_state, 0, sizeof(s_state));
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
   s_state.next_workout = WORKOUT_A;
+  memcpy(s_state.weights, DEFAULT_WEIGHTS, sizeof DEFAULT_WEIGHTS);
   save_state();
 }
 
@@ -145,7 +166,24 @@ static void load_state(void) {
       s_state.active_workout = old.active_workout;
       s_state.exercise_index = old.exercise_index;
       s_state.set_index = old.set_index;
+      memcpy(s_state.weights, DEFAULT_WEIGHTS, sizeof DEFAULT_WEIGHTS);
       save_state();
+      return;
+    }
+  }
+  if (version == 2) {
+    PersistedStateV2 old;
+    if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
+        old.next_workout <= WORKOUT_B && old.active_workout <= WORKOUT_B && old.active <= 1) {
+      memset(&s_state, 0, sizeof(s_state));
+      s_state.next_workout = old.next_workout; s_state.active = old.active;
+      s_state.active_workout = old.active_workout; s_state.exercise_index = old.exercise_index;
+      s_state.set_index = old.set_index; s_state.rest_active = old.rest_active;
+      s_state.rest_start = old.rest_start; s_state.rest_end = old.rest_end;
+      s_state.halfway_alerted = old.halfway_alerted;
+      memcpy(s_state.weights, DEFAULT_WEIGHTS, sizeof DEFAULT_WEIGHTS);
+      save_state();
+      if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       return;
     }
   }
@@ -158,6 +196,7 @@ static void load_state(void) {
       s_state.active <= 1 && s_state.rest_active <= 1 && s_state.halfway_alerted <= 1 &&
       (!s_state.rest_active || (s_state.active &&
        s_state.exercise_index < 3 && s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets))) {
+    for (size_t n = 0; n < 5; n++) if (!weight_valid(s_state.weights[n])) s_state.weights[n] = DEFAULT_WEIGHTS[n];
     if (s_state.rest_active) {
       if (rest_values_valid(time(NULL))) start_rest_services();
       else { clear_rest(); save_state(); }
@@ -190,17 +229,33 @@ static void update_display(void) {
     return;
   }
 
+  if (s_show_plates && s_state.active) {
+    PlateInventory inventory = plate_inventory_default();
+    PlateLoad load = calculate_plate_load(current_weight(s_state.active_workout, s_state.exercise_index), &inventory);
+    char side[64]; format_plate_side(&inventory, &load, side, sizeof side);
+    char actual[16]; weight_format(load.actual_total, actual, sizeof actual);
+    snprintf(s_exercise_text, sizeof s_exercise_text, "Plates / Side\n%s\n%s%s", actual,
+             side, load.exact ? "" : "\nRounded down");
+    text_layer_set_text(s_title_layer, "Plates / Side"); text_layer_set_text(s_exercise_layer, s_exercise_text);
+    text_layer_set_text(s_hint_layer, "Select: back"); return;
+  }
+
   text_layer_set_text(s_title_layer, workout_name(workout));
   if (!s_state.active) {
-    snprintf(s_exercise_text, sizeof(s_exercise_text), "Next: %s\nNext: %s\nNext: %s",
-             WORKOUTS[workout][0].name, WORKOUTS[workout][1].name,
-             WORKOUTS[workout][2].name);
+    char w0[16], w1[16], w2[16];
+    weight_format(current_weight(workout, 0), w0, sizeof w0);
+    weight_format(current_weight(workout, 1), w1, sizeof w1);
+    weight_format(current_weight(workout, 2), w2, sizeof w2);
+    snprintf(s_exercise_text, sizeof(s_exercise_text), "%s %s\n%s %s\n%s %s",
+             WORKOUTS[workout][0].name, w0, WORKOUTS[workout][1].name, w1,
+             WORKOUTS[workout][2].name, w2);
     snprintf(s_hint_text, sizeof(s_hint_text), "Select: start");
   } else {
     const ExerciseDefinition *current = &WORKOUTS[workout][s_state.exercise_index];
-    snprintf(s_exercise_text, sizeof(s_exercise_text), "%s\nSet %d of %d\n5 reps",
-             current->name, s_state.set_index + 1, current->sets);
-    snprintf(s_hint_text, sizeof(s_hint_text), s_confirm_abandon ? "Select: abandon" : "Select: complete");
+    char weight[16]; weight_format(current_weight(workout, s_state.exercise_index), weight, sizeof weight);
+    snprintf(s_exercise_text, sizeof(s_exercise_text), "%s\nSet %d of %d\n%s\n5 reps",
+             current->name, s_state.set_index + 1, current->sets, weight);
+    snprintf(s_hint_text, sizeof(s_hint_text), s_confirm_abandon ? "Select: abandon" : "Up: plates");
   }
   text_layer_set_text(s_exercise_layer, s_exercise_text);
   text_layer_set_text(s_hint_layer, s_hint_text);
@@ -235,6 +290,7 @@ static void complete_set(void) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_show_plates) { s_show_plates = false; update_display(); return; }
   if (s_saved) {
     s_saved = false;
     update_display();
@@ -263,6 +319,10 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
+static void up_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_state.active && !s_state.rest_active && !s_confirm_abandon) { s_show_plates = !s_show_plates; update_display(); }
+}
+
 static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   if (s_state.active) {
     if (s_state.rest_active) { clear_rest(); save_state(); }
@@ -273,6 +333,7 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
 
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
+  window_single_click_subscribe(BUTTON_ID_UP, up_click);
   window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, NULL);
 }
 
