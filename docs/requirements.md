@@ -245,6 +245,8 @@ Example labels include:
 - `Deload?`
 - `Not Synced`
 
+Every watch screen uses a black primary background and white primary text. Red is reserved for accent icons, selection markers, progress circles, important actions, and timer-completion emphasis; it must never fill the screen background. On Flint, red accents translate into clear white filled, outlined, or inverted monochrome states.
+
 The visual design should embrace Pebble's pixelated character:
 
 - Pixel-oriented typography
@@ -254,7 +256,7 @@ The visual design should embrace Pebble's pixelated character:
 - Simple visual hierarchy
 - Deliberate use of vibration and symbols to reduce text
 
-On color displays, the default theme should use white text on a StrongLifts-inspired red background or red panels. Red is the primary brand and action color, with white as the principal contrast color.
+On color displays, the default theme should use a black background with white text and restrained red accent icons and circles. Red is an accent for important actions and status, never a full-screen background.
 
 On monochrome hardware, the design must translate red emphasis into strong dark/light contrast without losing status distinctions.
 

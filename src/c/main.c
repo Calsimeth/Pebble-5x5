@@ -51,6 +51,11 @@ static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 
+// Black canvas, white content, and red accents (white on Flint).
+static GColor palette_background(void) { return GColorBlack; }
+static GColor palette_primary_text(void) { return GColorWhite; }
+static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorWhite); }
+
 static void save_state(void);
 static void update_display(void);
 
@@ -279,21 +284,21 @@ static void window_load(Window *window) {
   s_title_layer = text_layer_create(GRect(0, 14 + round_adjust, bounds.size.w, 34));
   text_layer_set_text_alignment(s_title_layer, GTextAlignmentCenter);
   text_layer_set_font(s_title_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  text_layer_set_text_color(s_title_layer, GColorWhite);
+  text_layer_set_text_color(s_title_layer, palette_accent());
   text_layer_set_background_color(s_title_layer, GColorClear);
   layer_add_child(root, text_layer_get_layer(s_title_layer));
 
   s_exercise_layer = text_layer_create(GRect(0, 58 + round_adjust, bounds.size.w, 100));
   text_layer_set_text_alignment(s_exercise_layer, GTextAlignmentCenter);
   text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-  text_layer_set_text_color(s_exercise_layer, GColorWhite);
+  text_layer_set_text_color(s_exercise_layer, palette_primary_text());
   text_layer_set_background_color(s_exercise_layer, GColorClear);
   layer_add_child(root, text_layer_get_layer(s_exercise_layer));
 
   s_hint_layer = text_layer_create(GRect(0, bounds.size.h - 30, bounds.size.w, 24));
   text_layer_set_text_alignment(s_hint_layer, GTextAlignmentCenter);
   text_layer_set_font(s_hint_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  text_layer_set_text_color(s_hint_layer, GColorWhite);
+  text_layer_set_text_color(s_hint_layer, palette_accent());
   text_layer_set_background_color(s_hint_layer, GColorClear);
   layer_add_child(root, text_layer_get_layer(s_hint_layer));
   update_display();
@@ -308,7 +313,7 @@ static void window_unload(Window *window) {
 static void init(void) {
   load_state();
   s_window = window_create();
-  window_set_background_color(s_window, PBL_IF_COLOR_ELSE(GColorRed, GColorBlack));
+  window_set_background_color(s_window, palette_background());
   window_set_click_config_provider(s_window, click_config_provider);
   window_set_window_handlers(s_window, (WindowHandlers){.load = window_load, .unload = window_unload});
   window_stack_push(s_window, true);
