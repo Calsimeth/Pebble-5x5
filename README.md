@@ -70,6 +70,18 @@ From PowerShell or an automated worker, wrap the Linux commands with `wsl -d Ubu
 wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble build'
 ```
 
+### WSL `E_ACCESSDENIED` workaround
+
+In a restricted worker or sandbox, WSL can fail before Ubuntu starts with `WSL/Service/E_ACCESSDENIED`. This is a host-permission issue, not a Pebble SDK or project failure. Run the WSL command with host-level permission (for example, approve the elevated WSL command when prompted), then verify WSL independently before retrying the build:
+
+```powershell
+wsl --status
+wsl --list --verbose
+wsl -d Ubuntu -- echo WSL_OK
+```
+
+The expected result is Ubuntu version 2, a `Running` distribution, and `WSL_OK`. If these commands still return `E_ACCESSDENIED`, restart or enable the Windows WSL/Virtual Machine Platform components using an administrator PowerShell session, then retry. Do not change the Pebble command or install a separate Android companion app to work around this error.
+
 Build all configured targets and install the result in each emulator with:
 
 ```sh
