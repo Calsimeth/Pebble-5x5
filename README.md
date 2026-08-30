@@ -42,6 +42,8 @@ The project builds all three targets with:
 pebble build
 ```
 
-SDK 4.33.1 also requires a Linux Node.js runtime and the SDK webpack launcher for the bundled JS step. The C builds and JS bundle complete in the configured WSL environment. Emulator launches currently require the WSL SDL2 runtime (`libSDL2-2.0.so.0`); installing that package requires administrator access.
+SDK 4.33.1 also requires a Linux Node.js runtime and the SDK webpack launcher for the bundled JS step. The C builds and JS bundle complete in the configured WSL environment. Emulator launches require the WSL SDL2 runtime (`libSDL2-2.0.so.0`), which must be installed with administrator access when missing.
+
+With the SDL2 runtime installed, the first slice has been built and installed successfully in the Flint, Emery, and Gabbro emulators.
 
 The remaining product work is described in [the development discussion guide](docs/development-guide.md). History, persistence, warm-ups, progression, plate calculations, timers, deloading, and CSV import/export are intentionally not part of this first slice.
