@@ -2,7 +2,7 @@
 
 Pebble StrongLifts is a proposed workout tracker for the current Pebble watch lineup. It is intentionally limited to the standard StrongLifts 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
 
-This repository is currently in requirements and design discussion. No application implementation has begun.
+The second watch-only vertical slice is implemented. It provides persistent Workout A/B state, set completion, interruption-safe resume, completion alternation, and confirmed abandonment.
 
 ## Documentation
 
@@ -19,7 +19,7 @@ The watch must remain useful without a phone connection. The bundled phone-side 
 
 ## Current status
 
-The first watch-only vertical slice is implemented. It displays Workout A with Squat, Bench, and Row, and Select advances a visible exercise selection. The watchapp is written in C, works without phone data, and includes only a minimal PebbleKit JS message acknowledgment foundation.
+The first two watch-only vertical slices are implemented. The watchapp is written in C, works without phone data, and includes only a minimal PebbleKit JS message acknowledgment foundation. The second slice displays the next fixed Workout A or B, records prescribed sets, resumes an active workout after interruption, saves completion, and alternates the next workout. During an active workout, hold Back for one second to request abandonment, then press Select to confirm; the same workout remains next.
 
 The project uses the current Pebble SDK project layout:
 
@@ -44,6 +44,6 @@ pebble build
 
 SDK 4.33.1 also requires a Linux Node.js runtime and the SDK webpack launcher for the bundled JS step. The C builds and JS bundle complete in the configured WSL environment. Emulator launches require the WSL SDL2 runtime (`libSDL2-2.0.so.0`), which must be installed with administrator access when missing.
 
-With the SDL2 runtime installed, the first slice has been built and installed successfully in the Flint, Emery, and Gabbro emulators.
+With the SDL2 runtime installed, the first slice was built and installed successfully in the Flint, Emery, and Gabbro emulators. Emulator validation for the second slice is recorded only when performed.
 
-The remaining product work is described in [the development discussion guide](docs/development-guide.md). History, persistence, warm-ups, progression, plate calculations, timers, deloading, and CSV import/export are intentionally not part of this first slice.
+The remaining product work is described in [the development discussion guide](docs/development-guide.md). Weights, plates, warm-ups, progression, timers, deloading, history synchronization, and CSV import/export are intentionally not part of this second slice.
