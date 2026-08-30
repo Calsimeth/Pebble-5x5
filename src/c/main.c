@@ -1,9 +1,10 @@
 #include <pebble.h>
 #include "plates.h"
+#include "warmups.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
-  STORAGE_SCHEMA_VERSION = 4,
+  STORAGE_SCHEMA_VERSION = 5,
   REST_SECONDS = 180,
 };
 
@@ -27,7 +28,15 @@ typedef struct {
   uint8_t halfway_alerted;
   Weight weights[5];
   PlateCounts inventory_counts;
+  uint8_t warmup_active, warmup_index;
+  WarmupPlan warmup_plan;
 } PersistedState;
+
+typedef struct {
+  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
+  uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
+  Weight weights[5]; PlateCounts inventory_counts;
+} PersistedStateV4;
 
 typedef struct {
   uint8_t schema_version;
@@ -72,7 +81,16 @@ static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
+static Weight current_weight(uint8_t workout, uint8_t exercise);
+static void save_state(void);
 static PlateInventory current_inventory(void) { return plate_inventory_from_counts(s_state.inventory_counts); }
+static void clear_warmup(void) { s_state.warmup_active = 0; s_state.warmup_index = 0; s_state.warmup_plan.count = 0; }
+static void generate_warmup(void) {
+  PlateInventory inventory = current_inventory();
+  s_state.warmup_plan = calculate_warmup_plan(current_weight(s_state.active_workout, s_state.exercise_index), &inventory);
+  s_state.warmup_index = 0; s_state.warmup_active = s_state.warmup_plan.count != 0;
+  save_state();
+}
 
 static const char *SETUP_WEIGHT_NAMES[5] = {"Squat", "Bench", "Row", "OHP", "Deadlift"};
 
@@ -90,7 +108,6 @@ static GColor palette_background(void) { return GColorBlack; }
 static GColor palette_primary_text(void) { return GColorWhite; }
 static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorWhite); }
 
-static void save_state(void);
 static void update_display(void);
 
 static void stop_rest_services(void) {
@@ -219,6 +236,22 @@ static void load_state(void) {
       return;
     }
   }
+  if (version == 4) {
+    PersistedStateV4 old;
+    if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
+        old.next_workout <= WORKOUT_B && old.active_workout <= WORKOUT_B && old.active <= 1) {
+      memset(&s_state, 0, sizeof s_state);
+      s_state.next_workout = old.next_workout; s_state.active = old.active;
+      s_state.active_workout = old.active_workout; s_state.exercise_index = old.exercise_index;
+      s_state.set_index = old.set_index; s_state.rest_active = old.rest_active;
+      s_state.rest_start = old.rest_start; s_state.rest_end = old.rest_end;
+      s_state.halfway_alerted = old.halfway_alerted; memcpy(s_state.weights, old.weights, sizeof old.weights);
+      memcpy(s_state.inventory_counts, old.inventory_counts, sizeof old.inventory_counts);
+      clear_warmup(); save_state();
+      if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
+      return;
+    }
+  }
   if (persist_exists(STORAGE_KEY_STATE) &&
       persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state)) == sizeof(s_state) &&
       s_state.schema_version == STORAGE_SCHEMA_VERSION &&
@@ -230,6 +263,11 @@ static void load_state(void) {
        s_state.exercise_index < 3 && s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets))) {
     for (size_t n = 0; n < 5; n++) if (!weight_valid(s_state.weights[n])) s_state.weights[n] = DEFAULT_WEIGHTS[n];
     for (size_t n = 0; n < PLATE_MAX_SIZES; n++) if (s_state.inventory_counts[n] > 2) s_state.inventory_counts[n] = DEFAULT_COUNTS[n];
+    { PlateInventory inventory = current_inventory();
+      if (s_state.warmup_active && (!warmup_plan_valid(&s_state.warmup_plan,
+          current_weight(s_state.active_workout, s_state.exercise_index), &inventory) ||
+          s_state.warmup_index >= s_state.warmup_plan.count)) { clear_warmup(); save_state(); }
+    }
     if (s_state.rest_active) {
       if (rest_values_valid(time(NULL))) start_rest_services();
       else { clear_rest(); save_state(); }
@@ -278,9 +316,20 @@ static void update_display(void) {
     return;
   }
 
+  if (s_state.active && s_state.warmup_active && !s_show_plates) {
+    WarmupSet set = s_state.warmup_plan.sets[s_state.warmup_index];
+    snprintf(s_exercise_text, sizeof s_exercise_text, "%s\nWarmup\nWarm %d of %d\n%ld lb\n5 reps",
+             WORKOUTS[workout][s_state.exercise_index].name, s_state.warmup_index + 1,
+             s_state.warmup_plan.count, (long)(set.weight / 4));
+    text_layer_set_text(s_title_layer, "Warmup"); text_layer_set_text(s_exercise_layer, s_exercise_text);
+    text_layer_set_text(s_hint_layer, "Sel: done Dn: skip"); return;
+  }
+
   if (s_show_plates && s_state.active) {
     PlateInventory inventory = current_inventory();
-    PlateLoad load = calculate_plate_load(current_weight(s_state.active_workout, s_state.exercise_index), &inventory);
+    Weight displayed_weight = s_state.warmup_active ? s_state.warmup_plan.sets[s_state.warmup_index].weight :
+      current_weight(s_state.active_workout, s_state.exercise_index);
+    PlateLoad load = calculate_plate_load(displayed_weight, &inventory);
     char side[64]; format_plate_side(&inventory, &load, side, sizeof side);
     char actual[16]; weight_format(load.actual_total, actual, sizeof actual);
     snprintf(s_exercise_text, sizeof s_exercise_text, "Plates / Side\n%s\n%s%s", actual,
@@ -312,6 +361,13 @@ static void update_display(void) {
 }
 
 static void complete_set(void) {
+  if (s_state.warmup_active) {
+    if (++s_state.warmup_index < s_state.warmup_plan.count) { save_state(); update_display(); return; }
+    clear_warmup(); save_state();
+    time_t now = time(NULL); s_state.rest_active = 1; s_state.rest_start = (int32_t)now;
+    s_state.rest_end = (int32_t)(now + REST_SECONDS); s_state.halfway_alerted = 0;
+    save_state(); start_rest_services(); update_display(); return;
+  }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
   s_state.set_index++;
   bool next_set_same_exercise = s_state.set_index < current->sets;
@@ -333,7 +389,7 @@ static void complete_set(void) {
       s_state.active = 0;
       s_state.next_workout = s_state.active_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A;
       s_saved = true;
-    }
+    } else generate_warmup();
   }
   save_state();
   update_display();
@@ -367,6 +423,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     s_state.active_workout = s_state.next_workout;
     s_state.exercise_index = 0;
     s_state.set_index = 0;
+    generate_warmup();
     save_state();
     update_display();
   } else {
@@ -386,7 +443,13 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void down_click(ClickRecognizerRef recognizer, void *context) {
-  if (!s_setup) { if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); } return; }
+  if (!s_setup) {
+    if (s_state.active && s_state.warmup_active && !s_state.rest_active) {
+      if (++s_state.warmup_index >= s_state.warmup_plan.count) clear_warmup();
+      save_state(); update_display();
+    } else if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
+    return;
+  }
   if (s_setup_item < 5) {
     { PlateInventory inventory = current_inventory(); s_state.weights[s_setup_item] = previous_achievable_total(s_state.weights[s_setup_item], &inventory); }
   } else if (s_state.inventory_counts[s_setup_item - 5] > 0) {
@@ -404,7 +467,7 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
     if (s_state.rest_active) { clear_rest(); save_state(); }
-    s_confirm_abandon = true;
+    clear_warmup(); save_state(); s_confirm_abandon = true;
     update_display();
   }
 }

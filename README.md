@@ -2,7 +2,7 @@
 
 Pebble StrongLifts is a proposed workout tracker for the current Pebble watch lineup. It is intentionally limited to the standard StrongLifts 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
 
-Slice five is complete: the watch supports offline working-weight setup and per-side plate inventory setup. Weights remain quarter-pound integers, but edits move only between achievable symmetrical loads.
+Slice six is complete: the watch supports deterministic, achievable warm-up recommendations and warm-up-set tracking before work sets. Warm-up weights are recommendations, not progression or history decisions.
 
 ## Documentation
 
@@ -19,7 +19,11 @@ The watch must remain useful without a phone connection. The bundled phone-side 
 
 ## Current status
 
-The first five watch-only vertical slices are implemented. Working weights are stored as quarter-pound scaled integers (45 lb = 180 units), with defaults of Squat 45, Bench 45, Row 65, OHP 45, and Deadlift 95 lb. From the inactive overview, press Down to open setup; Select advances fields and Up/Down changes the selected weight or per-side plate count. Back leaves setup. Inventory defaults to 45:2, 35:0, 25:2, 15:0, 10:2, 5:2, and 2.5:2 plates per side. Inventory changes normalize affected weights downward. During an active workout, hold Back for one second to request abandonment, then press Select to confirm; the same workout remains next.
+The first six watch-only vertical slices are implemented. Working weights are stored as quarter-pound scaled integers (45 lb = 180 units), with defaults of Squat 45, Bench 45, Row 65, OHP 45, and Deadlift 95 lb. From the inactive overview, press Down to open setup; Select advances fields and Up/Down changes the selected weight or per-side plate count. Back leaves setup. Inventory defaults to 45:2, 35:0, 25:2, 15:0, 10:2, 5:2, and 2.5:2 plates per side. Inventory changes normalize affected weights downward. During an active workout, hold Back for one second to request abandonment, then press Select to confirm; the same workout remains next.
+
+Warm-ups start with the configured empty bar and five repetitions. The calculator inspects the 45 lb plates actually used by the work-set configuration: zero produces only the bar, one may add one evenly-spaced intermediate for work weights at or above 135 lb, and two may add two for work weights at or above 225 lb. Each target is rounded down through the plate calculator, and duplicates or unachievable targets are omitted. Plans are capped at three sets.
+
+During a warm-up, Select marks it done and Down skips it; only completing the final warm-up starts the normal three-minute work-set rest. Up opens plates for the current warm-up weight, and Select returns without changing set state. A 45 lb exercise begins work sets immediately. Warm-ups are not counted toward 5x5 or deadlift 1x5.
 
 The project uses the current Pebble SDK project layout:
 
@@ -95,4 +99,4 @@ Workers must report the build and emulator result for each target. They should n
 
 The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed.
 
-The remaining product work is described in [the development discussion guide](docs/development-guide.md). Warm-ups, progression, deloading, history synchronization, and CSV import/export remain future work; weights, plates, and timers are implemented.
+The remaining product work is described in [the development discussion guide](docs/development-guide.md). Automatic progression, failure handling, deloading, long-term history synchronization, and CSV import/export remain future work; weights, plates, timers, and warm-up recommendations are implemented.
