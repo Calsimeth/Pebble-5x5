@@ -29,20 +29,57 @@ The project uses the current Pebble SDK project layout:
 
 ## Local SDK development
 
-The Pebble SDK does not run natively on Windows. Use WSL 2 with Ubuntu. The SDK can be installed with:
+The Pebble SDK does not run natively on Windows. Workers developing this repository must run SDK commands inside the Ubuntu WSL 2 distribution, while continuing to edit the files in the Windows checkout.
+
+### One-time WSL setup
+
+Install the Linux runtime dependencies from an Ubuntu WSL shell:
 
 ```sh
+sudo apt-get update
+sudo apt-get install -y curl nodejs npm libsdl2-2.0-0
+```
+
+Install `uv`, a Linux Node.js runtime, Pebble Tool, and the current SDK. The project has been verified with Pebble Tool 5.0.40 and SDK 4.33.1:
+
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 uv tool install pebble-tool --python 3.13
 pebble sdk install 4.33.1
 ```
 
-The project builds all three targets with:
+The bundled PebbleKit JS step also needs the SDK webpack launcher to be executable:
+
+```sh
+chmod +x "$HOME/.local/share/pebble-sdk/SDKs/4.33.1/node_modules/.bin/webpack"
+```
+
+### Worker command pattern
+
+Each worker shell must expose the user-local Node.js runtime, SDK webpack launcher, and Pebble Tool before invoking the SDK:
+
+```sh
+export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"
+cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"
+```
+
+From PowerShell or an automated worker, wrap the Linux commands with `wsl -d Ubuntu -- bash -lc`. Keep the Linux command in single quotes so `$HOME` and `$PATH` expand inside WSL:
+
+```powershell
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble build'
+```
+
+Build all configured targets and install the result in each emulator with:
 
 ```sh
 pebble build
+pebble install --emulator flint
+pebble install --emulator emery
+pebble install --emulator gabbro
 ```
 
-SDK 4.33.1 also requires a Linux Node.js runtime and the SDK webpack launcher for the bundled JS step. The C builds and JS bundle complete in the configured WSL environment. Emulator launches require the WSL SDL2 runtime (`libSDL2-2.0.so.0`), which must be installed with administrator access when missing.
+Workers must report the build and emulator result for each target. They should not commit `/build/`, `.lock-waf_linux_build`, SDK files, emulator state, or other generated output. If an emulator command hangs, stop only that command and retry the affected platform; a transient WebSocket disconnect does not imply a source or build failure.
 
 With the SDL2 runtime installed, the first slice was built and installed successfully in the Flint, Emery, and Gabbro emulators. Emulator validation for the second slice is recorded only when performed.
 
