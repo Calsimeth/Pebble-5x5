@@ -31,5 +31,6 @@ bool sync_queue_valid(const SyncQueue *);
 bool sync_record_equal(const SyncRecord *, const SyncRecord *);
 uint32_t sync_highest_retained_id(const SyncQueue *, const SyncRecord *, bool);
 bool sync_allocate_id(uint32_t *counter, const SyncQueue *, const SyncRecord *, bool, uint32_t *out);
+bool sync_allocate_id_limited(uint32_t *counter, const SyncQueue *, const SyncRecord *, bool, uint32_t *out, uint32_t search_limit);
 int sync_record_to_json(const SyncRecord *, char *, size_t);
 #endif

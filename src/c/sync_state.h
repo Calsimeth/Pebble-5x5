@@ -10,5 +10,6 @@ void sync_machine_transport(SyncMachine *m, bool ok);
 bool sync_machine_ack(SyncMachine *m, uint32_t id);
 uint32_t sync_machine_retry_delay(const SyncMachine *m);
 void sync_machine_timeout(SyncMachine *m);
+void sync_machine_retry_elapsed(SyncMachine *m);
 void sync_machine_deinit(SyncMachine *m);
 #endif

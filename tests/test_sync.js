@@ -1,5 +1,5 @@
-var assert=require('assert'), data={}, handlers={}, sent=[];
-global.localStorage={get length(){return Object.keys(data).length;},key:function(i){return Object.keys(data)[i]||null;},getItem:function(k){return data[k]===undefined?null:data[k];},setItem:function(k,v){data[k]=v;}};
+var assert=require('assert'), data={}, handlers={}, sent=[], failKey=null, failWrite=0;
+global.localStorage={get length(){return Object.keys(data).length;},key:function(i){return Object.keys(data)[i]||null;},getItem:function(k){return data[k]===undefined?null:data[k];},setItem:function(k,v){if(k===failKey||(--failWrite===0))throw Error('injected');data[k]=v;}};
 global.Pebble={addEventListener:function(n,f){handlers[n]=f;},sendAppMessage:function(p){sent.push(p);}};
 var sync=require('../src/pkjs/index.js');
 var a={v:1,id:7,t:123,w:0,e:[0,1,2],wt:[180,180,260],r:Array(15).fill(5),c:1,d:0};
@@ -8,4 +8,6 @@ handlers.appmessage({payload:{message:JSON.stringify(a)}}); assert.strictEqual(s
 var conflict=Object.assign({},a,{t:124}); sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(conflict)}}); assert.strictEqual(sent.length,0);
 handlers.appmessage({payload:{message:'bad'}}); assert.notStrictEqual(sent.pop().ack,7);
 data.historyIndex='{bad'; var orphan=JSON.stringify({schemaVersion:1,records:[Object.assign({},a,{id:8})]}); data['historyChunk:0001']=orphan; assert(sync.store(Object.assign({},a,{id:8}))); assert.strictEqual(data['historyChunk:0001'],orphan);
+failKey='historyChunk:0002'; sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(Object.assign({},a,{id:9}))}}); assert.strictEqual(sent.length,0); failKey=null;
+failWrite=2; assert(!sync.store(Object.assign({},a,{id:10}))); failWrite=0; assert(sync.store(Object.assign({},a,{id:10})));
 console.log('sync js tests passed');
