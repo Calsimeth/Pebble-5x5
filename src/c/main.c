@@ -103,6 +103,7 @@ static bool s_weights_adjusted;
 static bool s_deload;
 static bool s_deload_adjusting;
 static bool s_plateau;
+static uint8_t s_plateau_exercise;
 static Weight s_deload_weight;
 static uint8_t s_deload_workout;
 static uint8_t s_selected_reps = 5;
@@ -578,7 +579,7 @@ static void complete_set(void) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
-  if (s_plateau) { s_plateau = false; update_display(); return; }
+  if (s_plateau) { s_state.failure_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
   if (s_deload) {
     s_state.weights[s_setup_item] = s_deload_weight;
     s_state.deload_pending[s_setup_item] = 0;
@@ -612,9 +613,10 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   } else if (!s_state.active) {
     for (uint8_t n = 0; n < 5; n++) {
       DeloadState d = { .failure_streak = s_state.failure_streaks[n], .accepted_deloads = s_state.accepted_deloads[n] };
-      if (plateau_advisory_due(&d)) { s_plateau = true; update_display(); return; }
+      if (plateau_advisory_due(&d)) { s_plateau = true; s_plateau_exercise = n; update_display(); return; }
     }
-    uint8_t indices[3] = {0, 1, s_state.next_workout == WORKOUT_A ? 2 : 3};
+    uint8_t indices[3];
+    deload_workout_order(s_state.next_workout == WORKOUT_B, indices);
     for (uint8_t n = 0; n < 3; n++) { begin_deload(indices[n]); if (s_deload) return; }
     s_state.active_workout = s_state.next_workout;
     s_state.exercise_index = 0;
@@ -653,7 +655,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     if (s_deload_adjusting) s_deload_weight = previous_achievable_total(s_deload_weight, &inventory);
-    else { s_state.deload_pending[s_setup_item] = 0; s_deload = false; save_state(); }
+    else { s_state.deload_pending[s_setup_item] = 0; s_state.failure_reviewed[s_setup_item] = 1; s_deload = false; save_state(); }
     update_display(); return;
   }
   if (!s_setup) {

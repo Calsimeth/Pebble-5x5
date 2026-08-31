@@ -38,6 +38,12 @@ int main(void) {
   assert(state.accepted_deloads == 2 && state.failure_streak == 0 && !state.pending);
   state.failure_streak = 3;
   assert(plateau_advisory_due(&state));
+  uint8_t order[3];
+  assert(deload_workout_order(false, order) == 3 && order[0] == 0 && order[1] == 1 && order[2] == 2);
+  assert(deload_workout_order(true, order) == 3 && order[0] == 0 && order[1] == 3 && order[2] == 4);
+  assert(order[1] != 1 && order[2] == 4);
+  plateau_dismiss(&state);
+  assert(!deload_should_prompt(&state, false));
   deload_accept(&state);
   assert(state.current_weight == WEIGHT_LB(225));
   return 0;

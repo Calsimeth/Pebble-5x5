@@ -48,3 +48,13 @@ bool plateau_advisory_due(const DeloadState *state) {
   return state && state->accepted_deloads >= DELOAD_PLATEAU_THRESHOLD &&
          state->failure_streak >= DELOAD_FAILURE_THRESHOLD;
 }
+
+uint8_t deload_workout_order(bool workout_b, uint8_t out[3]) {
+  if (!out) return 0;
+  out[0] = 0; out[1] = workout_b ? 3 : 1; out[2] = workout_b ? 4 : 2;
+  return 3;
+}
+
+void plateau_dismiss(DeloadState *state) {
+  if (state) state->failure_reviewed = true;
+}

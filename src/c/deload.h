@@ -30,5 +30,7 @@ void deload_decline(DeloadState *state);
 void deload_review_gap(DeloadState *state);
 void deload_review_failure(DeloadState *state);
 bool plateau_advisory_due(const DeloadState *state);
+uint8_t deload_workout_order(bool workout_b, uint8_t out[3]);
+void plateau_dismiss(DeloadState *state);
 
 #endif
