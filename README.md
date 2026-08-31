@@ -2,7 +2,7 @@
 
 Pebble StrongLifts is a proposed workout tracker for the current Pebble watch lineup. It is intentionally limited to the standard StrongLifts 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
 
-Slice six is complete: the watch supports deterministic, achievable warm-up recommendations and warm-up-set tracking before work sets. Warm-up weights are recommendations, not progression or history decisions.
+Slice nine adds the bounded, offline-first history synchronization contract. Completed records use a three-entry watch outbox; the phone stores deduplicated records in versioned localStorage chunks and acknowledges only after storage succeeds. CSV import/export remains out of scope.
 
 ## Documentation
 
@@ -103,4 +103,4 @@ Slice eight adds optional deload guidance. Three consecutive failures or a gap o
 
 The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed; no emulator validation has been run for slice eight yet.
 
-The remaining product work is described in [the development discussion guide](docs/development-guide.md). Long-term history synchronization and CSV import/export remain future work.
+The remaining product work is described in [the development discussion guide](docs/development-guide.md). CSV import/export remains future work.

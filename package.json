@@ -12,7 +12,7 @@
     "enableMultiJS": true,
     "targetPlatforms": ["flint", "emery", "gabbro"],
     "watchapp": { "watchface": false },
-    "messageKeys": ["message", "ack"],
+    "messageKeys": ["message", "ack", "sync_type", "sync_id", "sync_data", "sync_status"],
     "resources": { "media": [] }
   }
 }

@@ -67,7 +67,7 @@ Traditional Pebble persistent storage is constrained, historically around 4 KB p
 
 Completed records not yet acknowledged by the phone must remain queued on the watch. The queue should be bounded and must never silently overwrite an unsynchronized record without a visible warning.
 
-Each message should carry a stable record identifier so retries are idempotent.
+Each message carries a stable record identifier so retries are idempotent. Slice nine uses protocol v1 AppMessage keys `sync_type`, `sync_id`, `sync_data`, and `sync_status`: type 1 is a record, type 2 is an ACK, and type 3 is a NACK. Records contain schema version, timestamp, A/B value, three exercise IDs, three weight snapshots, work-set repetitions, completion, and compact deload flags. The watch outbox is capped at three records; a full queue reports `Sync required` and never overwrites data.
 
 ### Tier 3: phone-side history
 
@@ -90,7 +90,7 @@ Chunking reduces the amount rewritten for every workout and creates a path for b
 
 The protocol should be designed before UI implementation.
 
-Recommended flow:
+Implemented flow:
 
 1. The watch saves a completed record locally.
 2. The watch sends a compact record with a stable identifier.
@@ -98,6 +98,8 @@ Recommended flow:
 4. PebbleKit JS responds with an acknowledgement containing the identifier.
 5. Only after acknowledgement may the watch remove the record from its outbox.
 6. Repeated delivery of the same identifier must not create duplicates.
+
+The phone stores `schemaVersion`, `historyIndex`, and separate `historyChunk:0001`-style JSON values in PebbleKit JS `localStorage`. It writes a chunk before updating the index, and sends ACK only after both writes succeed. Corrupt indexes do not trigger silent deletion or pruning.
 
 AppMessage payloads are size-limited, so large records may require chunking. Protocol messages should contain a schema version and message type.
 
