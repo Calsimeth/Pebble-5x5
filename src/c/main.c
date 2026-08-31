@@ -160,15 +160,17 @@ static AppTimer *s_query_timer;
 #define MESSAGE_KEY_exercise 10010
 #define MESSAGE_KEY_page 10011
 #define MESSAGE_KEY_calendar_id 10012
-#define MESSAGE_KEY_progress_id 10017
-#define MESSAGE_KEY_progress_exercise 10018
-#define MESSAGE_KEY_progress_total 10020
-#define MESSAGE_KEY_progress_point_count 10023
+#define MESSAGE_KEY_progress_id 10019
+#define MESSAGE_KEY_progress_exercise 10020
+#define MESSAGE_KEY_progress_total 10022
+#define MESSAGE_KEY_progress_point_count 10025
 #define MESSAGE_KEY_calendar_mask 10016
-#define MESSAGE_KEY_progress_chunk_index 10021
-#define MESSAGE_KEY_progress_chunk_count 10022
-#define MESSAGE_KEY_progress_t0 10024
-#define MESSAGE_KEY_progress_w0 10029
+#define MESSAGE_KEY_calendar_mask_a 10017
+#define MESSAGE_KEY_calendar_mask_b 10018
+#define MESSAGE_KEY_progress_chunk_index 10023
+#define MESSAGE_KEY_progress_chunk_count 10024
+#define MESSAGE_KEY_progress_t0 10026
+#define MESSAGE_KEY_progress_w0 10031
 static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
 static SyncAdapter s_sync_adapter;
@@ -238,10 +240,11 @@ static void resume_deferred_query(void);
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
 static void load_visual_fixture(void) {
   s_calendar_year=2026; s_calendar_month=8; s_screen=SCREEN_HISTORY; s_query_connected=true;
-  s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30)}; s_calendar_valid=true;
+  s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30),(1u<<2)|(1u<<17)|(1u<<30),(1u<<9)|(1u<<23)}; s_calendar_valid=true;
   progress_assembly_reset(&s_progress_data); s_progress_exercise=0;
 #if STRONGLIFTS_FIXTURE_ID == 1
   s_screen=SCREEN_HISTORY;
+  { ProgressPoint p[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}}; progress_chunk_add(&s_progress_data,2,0,0,1,0,1,5,p); }
 #elif STRONGLIFTS_FIXTURE_ID == 2
   s_calendar.mask=0;
 #elif STRONGLIFTS_FIXTURE_ID == 3
@@ -264,12 +267,12 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
     graphics_draw_text(ctx,"History",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
     char header[16];snprintf(header,sizeof header,"%d/%d",s_calendar_month,s_calendar_year);graphics_draw_text(ctx,header,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
-    int left=PBL_IF_ROUND_ELSE(28,0), bottom=PBL_IF_ROUND_ELSE(24,0), grid_width=b.size.w-left*2, cw=grid_width/7, top=46, ch=(b.size.h-top-bottom)/6;
+    int left=PBL_IF_ROUND_ELSE(30,0), bottom=PBL_IF_ROUND_ELSE(22,0), grid_width=b.size.w-left*2, cw=grid_width/7, top=44, ch=(b.size.h-top-bottom)/6;
     static const char *weekdays[] = {"S","M","T","W","T","F","S"};
     for(int x=0;x<7;x++) graphics_draw_text(ctx,weekdays[x],fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(left+x*cw,32,cw,14),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     for(int x=0;x<=7;x++) graphics_draw_line(ctx,GPoint(left+x*cw,top),GPoint(left+x*cw,top+ch*6));
     for(int y=0;y<=6;y++) graphics_draw_line(ctx,GPoint(left,top+y*ch),GPoint(left+grid_width,top+y*ch));
-    for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;bool marked=(s_calendar.mask&(1u<<(d-1)))!=0;char v[4];snprintf(v,sizeof v,"%d",d);if(marked){graphics_context_set_fill_color(ctx,palette_accent());graphics_fill_circle(ctx,GPoint(left+x*cw+cw/2,top+y*ch+ch/2),PBL_IF_ROUND_ELSE(5,cw/2-1));graphics_context_set_text_color(ctx,PBL_IF_COLOR_ELSE(GColorWhite,GColorBlack));}else graphics_context_set_text_color(ctx,GColorWhite);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(left+x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);}
+    for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;uint32_t bit=1u<<(d-1);bool marked=(s_calendar.mask&bit)!=0;char v[4];snprintf(v,sizeof v,"%d",d);if(marked){graphics_context_set_fill_color(ctx,palette_accent());graphics_fill_rect(ctx,GRect(left+x*cw+1,top+y*ch+1,cw-2,ch-2),0,GCornerNone);graphics_context_set_text_color(ctx,PBL_IF_COLOR_ELSE(GColorWhite,GColorBlack));}else graphics_context_set_text_color(ctx,GColorWhite);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(left+x*cw+1,top+y*ch+1,cw-2,ch-2),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(marked){char which[3];bool a=(s_calendar.mask_a&bit)!=0,bm=(s_calendar.mask_b&bit)!=0;snprintf(which,sizeof which,"%s",a&&bm?"AB":(bm?"B":"A"));graphics_draw_text(ctx,which,fonts_get_system_font(FONT_KEY_GOTHIC_09),GRect(left+x*cw+1,top+y*ch+ch-9,cw-2,9),GTextOverflowModeFill,GTextAlignmentCenter,NULL);}}
   } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data) && s_progress_data.total_points) {
     int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<s_progress_data.total_points;i++){if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
     if(min!=INT32_MAX){graphics_context_set_stroke_color(ctx,palette_accent());for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/(s_progress_data.total_points-1),x1=i*b.size.w/(s_progress_data.total_points-1);int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,62)+28,y1=graph_coordinate(s_progress_data.points[i].w,min,max,62)+28;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}char stats[64],range[32];struct tm *lo=localtime((time_t *)&s_progress_data.points[0].t),*hi=localtime((time_t *)&s_progress_data.points[s_progress_data.total_points-1].t);strftime(range,sizeof range,"%m/%d",lo);if(hi) {char tail[8];strftime(tail,sizeof tail,"-%m/%d",hi);strncat(range,tail,sizeof(range)-strlen(range)-1);}snprintf(stats,sizeof stats,"%s Min %ld Max %ld lb",range,(long)min,(long)max);graphics_draw_text(ctx,stats,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,94,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);graphics_draw_text(ctx,"Page 1/1",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,110,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);}
@@ -426,7 +429,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
 }
 static void query_received(DictionaryIterator *i) {
   Tuple *c=dict_find(i,MESSAGE_KEY_calendar_id), *p=dict_find(i,MESSAGE_KEY_progress_id);
-  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_calendar_valid=true;s_query_connected=true;query_controller_response(&s_query_controller,true,true);if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}send_oldest();update_display();} return; }
+  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask),*a=dict_find(i,MESSAGE_KEY_calendar_mask_a),*b=dict_find(i,MESSAGE_KEY_calendar_mask_b); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0,a?a->value->uint32:(x?x->value->uint32:0),b?b->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_calendar_valid=true;s_query_connected=true;query_controller_response(&s_query_controller,true,true);if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}send_oldest();update_display();} return; }
   if (p) { Tuple *ex=dict_find(i,MESSAGE_KEY_progress_exercise),*pg=dict_find(i,MESSAGE_KEY_progress_page),*tt=dict_find(i,MESSAGE_KEY_progress_total),*ix=dict_find(i,MESSAGE_KEY_progress_chunk_index),*cc=dict_find(i,MESSAGE_KEY_progress_chunk_count),*pc=dict_find(i,MESSAGE_KEY_progress_point_count); ProgressPoint pts[5];uint8_t n=pc?pc->value->uint8:0;for(uint8_t z=0;z<n&&z<5;z++){Tuple *t=dict_find(i,MESSAGE_KEY_progress_t0+z),*w=dict_find(i,MESSAGE_KEY_progress_w0+z);if(!t||!w){n=6;break;}pts[z]=(ProgressPoint){t->value->int32,w->value->uint16};}if(ex&&pg&&tt&&ix&&cc&&n<=5&&progress_chunk_add(&s_progress_data,p->value->uint16,ex->value->uint8,pg->value->uint8,tt->value->uint8,ix->value->uint8,cc->value->uint8,n,pts)){if(progress_assembly_complete(&s_progress_data)){s_query_connected=true;query_controller_response(&s_query_controller,true,true);if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}send_oldest();update_display();}} }
 }
 static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }

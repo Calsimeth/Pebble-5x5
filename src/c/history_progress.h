@@ -2,7 +2,7 @@
 #define HISTORY_PROGRESS_H
 #include <stdint.h>
 #include <stdbool.h>
-typedef struct { uint16_t request_id, year; uint8_t month, days; uint32_t mask; } CalendarResponse;
+typedef struct { uint16_t request_id, year; uint8_t month, days; uint32_t mask, mask_a, mask_b; } CalendarResponse;
 bool calendar_response_valid(const CalendarResponse *r, uint16_t request, uint16_t year, uint8_t month);
 typedef struct { int32_t t; uint16_t w; } ProgressPoint;
 typedef struct { uint16_t request; uint8_t exercise,page,total,index,count,received,total_points; ProgressPoint points[20]; uint8_t point_counts[4]; uint8_t seen[4]; } ProgressAssembly;

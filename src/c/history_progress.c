@@ -1,7 +1,7 @@
 #include "history_progress.h"
 #include <string.h>
 static uint8_t month_days(uint16_t y,uint8_t m){static const uint8_t d[]={31,28,31,30,31,30,31,31,30,31,30,31};return d[m-1]+(m==2&&((y%4==0&&y%100!=0)||y%400==0));}
-bool calendar_response_valid(const CalendarResponse *r,uint16_t q,uint16_t y,uint8_t m){if(!r||!q||r->request_id!=q||r->year!=y||r->month!=m||m<1||m>12||r->days!=month_days(y,m))return false;uint32_t allowed=r->days==31?0x7fffffffU:((1u<<r->days)-1u);return (r->mask&~allowed)==0;}
+bool calendar_response_valid(const CalendarResponse *r,uint16_t q,uint16_t y,uint8_t m){if(!r||!q||r->request_id!=q||r->year!=y||r->month!=m||m<1||m>12||r->days!=month_days(y,m))return false;uint32_t allowed=r->days==31?0x7fffffffU:((1u<<r->days)-1u);return !(r->mask&~allowed)&&!(r->mask_a&~allowed)&&!(r->mask_b&~allowed)&&((r->mask_a|r->mask_b)&~r->mask)==0;}
 void progress_assembly_reset(ProgressAssembly *a){if(a)memset(a,0,sizeof(*a));}
 bool progress_chunk_add(ProgressAssembly *a,uint16_t q,uint8_t exercise,uint8_t page,uint8_t total,uint8_t index,uint8_t count,uint8_t point_count,const ProgressPoint *p){
   if(!a||!q||count>4||index>=count||point_count>5||(!point_count&&!(!total&&count==1&&index==0))||(point_count&&!p)||(total&&page>=total))return false;
