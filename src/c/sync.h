@@ -21,11 +21,9 @@ typedef struct {
 typedef struct { uint8_t count; SyncRecord records[SYNC_QUEUE_CAPACITY]; } SyncQueue;
 typedef enum { SYNC_PUSH_ADDED, SYNC_PUSH_IDENTICAL, SYNC_PUSH_FULL, SYNC_PUSH_CONFLICT } SyncPushResult;
 SyncPushResult sync_queue_push_result(SyncQueue *, const SyncRecord *);
-bool sync_queue_push(SyncQueue *, const SyncRecord *);
+SyncPushResult sync_pending_promote(SyncQueue *, const SyncRecord *, bool pending_valid);
 bool sync_queue_ack(SyncQueue *, uint32_t id);
 const SyncRecord *sync_queue_peek(const SyncQueue *);
-uint16_t sync_record_serialize(const SyncRecord *, uint8_t *out, uint16_t cap);
-bool sync_record_deserialize(SyncRecord *, const uint8_t *, uint16_t);
 bool sync_record_valid(const SyncRecord *);
 bool sync_queue_valid(const SyncQueue *);
 bool sync_record_equal(const SyncRecord *, const SyncRecord *);
