@@ -923,7 +923,8 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   }
   if (s_setup) {
     if (s_setup_mode == SETUP_MENU) {
-      s_setup_mode = s_setup_menu_index == 0 ? SETUP_WEIGHTS : SETUP_PLATES;
+      if (s_setup_menu_index == 0) { s_setup_mode = SETUP_WEIGHTS; s_weight_index = 0; }
+      else { s_setup_mode = SETUP_PLATES; s_plate_index = 0; }
     } else if (s_setup_mode == SETUP_WEIGHTS) {
       if (++s_weight_index >= 5) s_setup_mode = SETUP_MENU;
     } else {
