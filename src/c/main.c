@@ -118,6 +118,7 @@ static bool s_show_plates;
 static bool s_setup;
 typedef enum { SETUP_MENU, SETUP_WEIGHTS, SETUP_PLATES } SetupMode;
 static SetupMode s_setup_mode;
+static uint8_t s_setup_menu_index;
 static uint8_t s_weight_index;
 static uint8_t s_plate_index;
 typedef enum { SCREEN_HOME, SCREEN_SETUP, SCREEN_WORKOUT, SCREEN_WORKOUT_SELECT, SCREEN_HISTORY, SCREEN_PROGRESS_PICKER, SCREEN_PROGRESS_GRAPH } ScreenState;
@@ -648,18 +649,27 @@ static void update_display(void) {
     return;
   }
   if (s_setup) {
-    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
-    if (s_setup_item < 5) {
-      char weight[16]; weight_format(s_state.weights[s_setup_item], weight, sizeof weight);
-      snprintf(s_exercise_text, sizeof s_exercise_text, "%s\n%s\nQuarter lb", SETUP_WEIGHT_NAMES[s_setup_item], weight);
+    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+    if (s_setup_mode == SETUP_MENU) {
+      snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s",
+               s_setup_menu_index == 0 ? "> " : "  ", "Exercise Weights",
+               s_setup_menu_index == 1 ? "> " : "  ", "Plate Inventory");
+      text_layer_set_text(s_title_layer, "Setup");
+      text_layer_set_text(s_hint_layer, "Up/Down: choose");
+      text_layer_set_text(s_exercise_layer, s_exercise_text);
+      return;
+    }
+    if (s_setup_mode == SETUP_WEIGHTS) {
+      char weight[16]; weight_format(s_state.weights[s_weight_index], weight, sizeof weight);
+      snprintf(s_exercise_text, sizeof s_exercise_text, "%s\n%s", SETUP_WEIGHT_NAMES[s_weight_index], weight);
       text_layer_set_text(s_title_layer, "Set Weight");
     } else {
-      PlateInventory inventory = current_inventory(); size_t n = s_setup_item - 5; char size[16]; weight_format(inventory.plates[n].size, size, sizeof size);
-      snprintf(s_exercise_text, sizeof s_exercise_text, "%s\nCount / side: %d", size, s_state.inventory_counts[n]);
+      PlateInventory inventory = current_inventory(); char size[16]; weight_format(inventory.plates[s_plate_index].size, size, sizeof size);
+      snprintf(s_exercise_text, sizeof s_exercise_text, "%s\nCount / side: %d", size, s_state.inventory_counts[s_plate_index]);
       text_layer_set_text(s_title_layer, "Set Plates");
     }
     text_layer_set_text(s_exercise_layer, s_exercise_text);
-    snprintf(s_hint_text, sizeof s_hint_text, "Sel: next  Up/Down");
+    snprintf(s_hint_text, sizeof s_hint_text, "Up/Down: adjust");
     text_layer_set_text(s_hint_layer, s_hint_text);
     return;
   }
@@ -851,7 +861,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
       if (s_state.active) { show_workout(); return; }
       s_selected_workout = s_state.next_workout; s_screen = SCREEN_WORKOUT_SELECT; update_display(); return;
     }
-    if (s_home_item == 1) { s_screen = SCREEN_SETUP; s_setup = true; s_setup_item = 0; update_display(); return; }
+    if (s_home_item == 1) { s_screen = SCREEN_SETUP; s_setup = true; s_setup_mode = SETUP_MENU; s_weight_index = 0; s_plate_index = 0; update_display(); return; }
     s_screen = s_home_item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS_PICKER; s_query_connected=false;
     if (s_screen==SCREEN_HISTORY) { time_t now=time(NULL); struct tm *tm=localtime(&now); s_calendar_year=tm->tm_year+1900; s_calendar_month=tm->tm_mon+1; query_send("calendar_request"); }
     else { s_progress_exercise=0; s_progress_page=0; update_display(); } return;
@@ -868,7 +878,13 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     s_deload = false; s_deload_adjusting = false; save_state(); update_display(); return;
   }
   if (s_setup) {
-    s_setup_item = (s_setup_item + 1) % 12;
+    if (s_setup_mode == SETUP_MENU) {
+      s_setup_mode = s_setup_menu_index == 0 ? SETUP_WEIGHTS : SETUP_PLATES;
+    } else if (s_setup_mode == SETUP_WEIGHTS) {
+      if (++s_weight_index >= 5) s_setup_mode = SETUP_MENU;
+    } else {
+      if (++s_plate_index >= PLATE_MAX_SIZES) s_setup_mode = SETUP_MENU;
+    }
     update_display();
     return;
   }

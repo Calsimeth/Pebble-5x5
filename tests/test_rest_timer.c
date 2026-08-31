@@ -1,17 +1,14 @@
 #include <assert.h>
 #include <stdint.h>
-
-static uint32_t elapsed(int32_t start, int32_t now) {
-  return now >= start ? (uint32_t)(now - start) : 0;
-}
+#include "../src/c/rest_state.h"
 
 int main(void) {
-  assert(elapsed(1000, 1000) == 0);
-  assert(elapsed(1000, 1089) == 89);
-  assert(elapsed(1000, 1090) == 90);
-  assert(elapsed(1000, 1179) == 179);
-  assert(elapsed(1000, 1180) == 180);
-  assert(elapsed(1000, 1301) > 180);
+  assert(rest_elapsed(1000, 1000) == 0);
+  assert(rest_elapsed(1000, 1089) == 89);
+  RestState r = {.active=1, .start=1000};
+  assert(rest_alerts_due(&r, 1090) == 1);
+  assert(rest_alerts_due(&r, 1180) == 2);
+  assert(rest_alerts_due(&r, 1301) == 0);
 
   /* Persisted alert flags remain one-shot across a restart. */
   uint8_t halfway_alerted = 1, completion_alerted = 1;
