@@ -111,6 +111,10 @@ static bool s_saved;
 static bool s_confirm_abandon;
 static bool s_show_plates;
 static bool s_setup;
+typedef enum { SCREEN_HOME, SCREEN_SETUP, SCREEN_WORKOUT, SCREEN_WORKOUT_SELECT, SCREEN_HISTORY, SCREEN_PROGRESS } ScreenState;
+static ScreenState s_screen = SCREEN_HOME;
+static uint8_t s_home_item;
+static WorkoutType s_selected_workout;
 static bool s_weights_adjusted;
 static bool s_deload;
 static bool s_deload_adjusting;
@@ -189,6 +193,16 @@ static GColor palette_primary_text(void) { return GColorWhite; }
 static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorWhite); }
 
 static void update_display(void);
+
+static const char *home_label(uint8_t item) {
+  if (item == 0) return s_state.active ? "Continue" : "New Workout";
+  if (item == 1) return "Setup";
+  if (item == 2) return "History";
+  return "Progress";
+}
+
+static void show_home(void) { s_screen = SCREEN_HOME; s_setup = false; s_show_plates = false; update_display(); }
+static void show_workout(void) { s_screen = SCREEN_WORKOUT; s_setup = false; update_display(); }
 
 static void stop_rest_services(void) {
   if (s_rest_timer) {
@@ -488,6 +502,37 @@ static void load_state(void) {
 }
 
 static void update_display(void) {
+  if (s_screen == SCREEN_HOME) {
+    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+    text_layer_set_text(s_title_layer, "StrongLifts");
+    snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s\n%s%s\n%s%s",
+             s_home_item == 0 ? "> " : "  ", home_label(0),
+             s_home_item == 1 ? "> " : "  ", home_label(1),
+             s_home_item == 2 ? "> " : "  ", home_label(2),
+             s_home_item == 3 ? "> " : "  ", home_label(3));
+    text_layer_set_text(s_exercise_layer, s_exercise_text);
+    snprintf(s_hint_text, sizeof s_hint_text, "Select: open");
+    text_layer_set_text(s_hint_layer, s_hint_text);
+    return;
+  }
+  if (s_screen == SCREEN_WORKOUT_SELECT) {
+    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+    text_layer_set_text(s_title_layer, "New Workout");
+    snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s",
+             s_selected_workout == WORKOUT_A ? "> " : "  ", "Workout A",
+             s_selected_workout == WORKOUT_B ? "> " : "  ", "Workout B");
+    text_layer_set_text(s_exercise_layer, s_exercise_text);
+    text_layer_set_text(s_hint_layer, "Up/Down: choose");
+    return;
+  }
+  if (s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS) {
+    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+    text_layer_set_text(s_title_layer, s_screen == SCREEN_HISTORY ? "History" : "Progress");
+    text_layer_set_text(s_exercise_layer, s_screen == SCREEN_HISTORY ? "No History" : "No Progress");
+    text_layer_set_text(s_hint_layer, "Back: return");
+    return;
+  }
+  text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   if (s_plateau) {
     text_layer_set_text(s_title_layer, "Plateau likely");
     text_layer_set_text(s_exercise_layer, "Check form/rest\nSmaller jumps\nReview program");
@@ -706,6 +751,15 @@ static void complete_set(void) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_screen == SCREEN_HOME) {
+    if (s_home_item == 0) {
+      if (s_state.active) { show_workout(); return; }
+      s_selected_workout = s_state.next_workout; s_screen = SCREEN_WORKOUT_SELECT; update_display(); return;
+    }
+    if (s_home_item == 1) { s_screen = SCREEN_SETUP; s_setup = true; s_setup_item = 0; update_display(); return; }
+    s_screen = s_home_item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS; update_display(); return;
+  }
+  if (s_screen == SCREEN_WORKOUT_SELECT) { s_state.next_workout = s_selected_workout; s_screen = SCREEN_WORKOUT; }
   if (s_plateau) { s_state.plateau_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
   if (s_deload) {
     s_state.weights[s_setup_item] = s_deload_weight;
@@ -753,6 +807,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
       memset(s_state.work_reps[n], 0, sizeof s_state.work_reps[n]);
     }
     s_state.active = 1;
+    s_screen = SCREEN_WORKOUT;
     generate_warmup();
     save_state();
     update_display();
@@ -762,6 +817,8 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void up_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_screen == SCREEN_HOME) { if (s_home_item > 0) s_home_item--; update_display(); return; }
+  if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     s_deload_adjusting = true;
@@ -779,6 +836,8 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void down_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_screen == SCREEN_HOME) { if (s_home_item < 3) s_home_item++; update_display(); return; }
+  if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     if (s_deload_adjusting) s_deload_weight = previous_achievable_total(s_deload_weight, &inventory);
@@ -808,6 +867,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void back_long_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_screen == SCREEN_SETUP) { show_home(); return; }
   if (s_deload) { s_deload = false; s_deload_adjusting = false; update_display(); return; }
   if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
@@ -815,6 +875,12 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
     clear_warmup(); s_state.completion_blocked = 0; s_state.selected_reps = 5; s_selected_reps = 5; save_state(); s_confirm_abandon = true;
     update_display();
   }
+}
+
+static void back_click(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  if (s_screen == SCREEN_HOME) { window_stack_pop_all(true); return; }
+  if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
 }
 
 static void up_long_click(ClickRecognizerRef recognizer, void *context) {
@@ -825,6 +891,7 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
   window_single_click_subscribe(BUTTON_ID_UP, up_click);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
+  window_single_click_subscribe(BUTTON_ID_BACK, back_click);
   window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, NULL);
   window_long_click_subscribe(BUTTON_ID_UP, 1000, up_long_click, NULL);
 }
