@@ -328,7 +328,7 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   int clock_hour = clock_tm ? clock_tm->tm_hour % 12 : 0; if (!clock_hour) clock_hour = 12;
   snprintf(clock, sizeof clock, "%d:%02d", clock_hour, clock_tm ? clock_tm->tm_min : 0);
   graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 64, b.size.h - 42, 56, 20), GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 70, b.size.h - 70, 60, 20), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circle_x + n * (circle_diameter + circle_gap) + circle_diameter / 2;
     int16_t y = circles.y + circle_diameter / 2;
