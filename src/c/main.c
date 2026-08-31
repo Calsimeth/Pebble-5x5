@@ -157,12 +157,14 @@ static bool s_calendar_valid;
 #define MESSAGE_KEY_page 10011
 #define MESSAGE_KEY_calendar_id 10012
 #define MESSAGE_KEY_progress_id 10017
+#define MESSAGE_KEY_progress_exercise 10018
+#define MESSAGE_KEY_progress_total 10020
+#define MESSAGE_KEY_progress_point_count 10023
 #define MESSAGE_KEY_calendar_mask 10016
-#define MESSAGE_KEY_progress_year 10018
 #define MESSAGE_KEY_progress_chunk_index 10021
 #define MESSAGE_KEY_progress_chunk_count 10022
-#define MESSAGE_KEY_progress_t0 10023
-#define MESSAGE_KEY_progress_w0 10028
+#define MESSAGE_KEY_progress_t0 10024
+#define MESSAGE_KEY_progress_w0 10029
 static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
 static SyncAdapter s_sync_adapter;
@@ -236,8 +238,8 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
     for(int y=0;y<=6;y++) graphics_draw_line(ctx,GPoint(0,top+y*ch),GPoint(b.size.w,top+y*ch));
     for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;char v[3];snprintf(v,sizeof v,"%d",d);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(s_calendar.mask&(1u<<(d-1)))graphics_fill_circle(ctx,GPoint(x*cw+cw/2,top+y*ch+ch-4),2);}
   } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data)) {
-    int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<20;i++){if(i>=s_progress_data.count*5)break;if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
-    if(min!=INT32_MAX){for(uint8_t i=1;i<20&&i<s_progress_data.count*5;i++){int x0=(i-1)*b.size.w/19,x1=i*b.size.w/19;int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,b.size.h-16)+8,y1=graph_coordinate(s_progress_data.points[i].w,min,max,b.size.h-16)+8;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}}
+    int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<s_progress_data.total_points;i++){if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
+    if(min!=INT32_MAX){for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/19,x1=i*b.size.w/19;int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,b.size.h-16)+8,y1=graph_coordinate(s_progress_data.points[i].w,min,max,b.size.h-16)+8;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}}
   }
 }
 static void back_click(ClickRecognizerRef recognizer, void *context);
@@ -255,6 +257,8 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   if (!s_state.active || s_state.warmup_active || s_screen != SCREEN_WORKOUT) return;
   GRect b = layer_get_bounds(layer); uint8_t sets = WORKOUTS[s_state.active_workout][s_state.exercise_index].sets;
   WorkoutCircleLayout circles = workout_circle_layout(b.size.w, b.size.h, sets);
+  WorkoutViewModel view = {.set_count=sets, .completed_count=s_state.set_index, .selected_reps=s_selected_reps};
+  memcpy(view.completed_reps, s_state.work_reps[s_state.exercise_index], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
   graphics_draw_text(ctx, WORKOUTS[s_state.active_workout][s_state.exercise_index].name,
     fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD), GRect(6, 2, b.size.w / 2, 32), GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
@@ -279,7 +283,7 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
       graphics_context_set_stroke_color(ctx, GColorWhite); graphics_draw_circle(ctx, GPoint(x, y), circles.diameter / 2);
       graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
     }
-    char reps[4]; snprintf(reps, sizeof reps, "%d", done ? s_state.work_reps[s_state.exercise_index][n] : 5);
+    char reps[4]; snprintf(reps, sizeof reps, "%d", workout_view_display_reps(&view, n));
     graphics_draw_text(ctx, reps, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(x - circles.diameter / 2, y - 11, circles.diameter, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
 }
@@ -380,7 +384,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
 static void query_received(DictionaryIterator *i) {
   Tuple *c=dict_find(i,MESSAGE_KEY_calendar_id), *p=dict_find(i,MESSAGE_KEY_progress_id);
   if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_calendar_valid=true;s_query_connected=true;update_display();} return; }
-  if (p) { Tuple *pg=dict_find(i,MESSAGE_KEY_progress_page),*tt=dict_find(i,MESSAGE_KEY_progress_total),*ix=dict_find(i,MESSAGE_KEY_progress_chunk_index),*cc=dict_find(i,MESSAGE_KEY_progress_chunk_count); ProgressPoint pts[5];uint8_t n=0;for(uint8_t z=0;z<5;z++){Tuple *t=dict_find(i,MESSAGE_KEY_progress_t0+z),*w=dict_find(i,MESSAGE_KEY_progress_w0+z);if(!t||!w)break;pts[n++]=(ProgressPoint){t->value->int32,w->value->uint16};}if(pg&&tt&&ix&&cc&&progress_chunk_add(&s_progress_data,p->value->uint16,pg->value->uint8,tt->value->uint8,ix->value->uint8,cc->value->uint8,pts,n)){if(progress_assembly_complete(&s_progress_data)){s_query_connected=true;update_display();}} }
+  if (p) { Tuple *ex=dict_find(i,MESSAGE_KEY_progress_exercise),*pg=dict_find(i,MESSAGE_KEY_progress_page),*tt=dict_find(i,MESSAGE_KEY_progress_total),*ix=dict_find(i,MESSAGE_KEY_progress_chunk_index),*cc=dict_find(i,MESSAGE_KEY_progress_chunk_count),*pc=dict_find(i,MESSAGE_KEY_progress_point_count); ProgressPoint pts[5];uint8_t n=pc?pc->value->uint8:0;for(uint8_t z=0;z<n&&z<5;z++){Tuple *t=dict_find(i,MESSAGE_KEY_progress_t0+z),*w=dict_find(i,MESSAGE_KEY_progress_w0+z);if(!t||!w){n=6;break;}pts[z]=(ProgressPoint){t->value->int32,w->value->uint16};}if(ex&&pg&&tt&&ix&&cc&&n<=5&&progress_chunk_add(&s_progress_data,p->value->uint16,ex->value->uint8,pg->value->uint8,tt->value->uint8,ix->value->uint8,cc->value->uint8,n,pts)){if(progress_assembly_complete(&s_progress_data)){s_query_connected=true;update_display();}} }
 }
 static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }
 static void send_oldest(void) {
@@ -1035,6 +1039,7 @@ static void back_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_PROGRESS_GRAPH) { s_screen=SCREEN_PROGRESS_PICKER; s_query_connected=false; update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY) { show_home(); return; }
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
+  show_home();
 }
 
 static void up_long_click(ClickRecognizerRef recognizer, void *context) {

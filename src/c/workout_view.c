@@ -3,9 +3,14 @@
 bool workout_view_rep_selected_valid(uint8_t reps) { return reps <= 5; }
 uint8_t workout_view_rep_up(uint8_t reps) { return reps >= 5 ? 5 : reps + 1; }
 uint8_t workout_view_rep_down(uint8_t reps) { return reps == 0 ? 0 : reps - 1; }
+uint8_t workout_view_display_reps(const WorkoutViewModel *m, uint8_t circle) {
+  if (!m || circle >= m->set_count) return 0;
+  if (circle < m->completed_count) return m->completed_reps[circle];
+  return circle == m->completed_count ? m->selected_reps : 5;
+}
 
 bool workout_view_model_valid(const WorkoutViewModel *model) {
-  if (!model || model->set_count == 0 || model->set_count > 5 || !workout_view_rep_selected_valid(model->selected_reps)) return false;
+  if (!model || model->set_count == 0 || model->set_count > 5 || model->completed_count > model->set_count || !workout_view_rep_selected_valid(model->selected_reps)) return false;
   for (uint8_t n = 0; n < model->set_count; n++) if (model->completed_reps[n] > 5) return false;
   return true;
 }
