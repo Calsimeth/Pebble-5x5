@@ -275,7 +275,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
-  if (r && id->value->uint32 == r->id && sync_machine_ack(&s_sync_machine, r->id) && sync_queue_ack(&s_state.outbox, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; SyncPushResult result = sync_pending_promote(&s_state.outbox, &s_state.pending_record, s_state.pending_valid); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) s_state.pending_valid = 0; if (s_state.completion_blocked && !s_state.pending_valid) s_state.completion_blocked = 0; save_state(); send_oldest(); update_display(); }
+  if (r && id->value->uint32 == r->id && sync_machine_ack(&s_sync_machine, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; sync_completion_ack_promote(&s_state.outbox, r->id, &s_state.pending_record, &s_state.pending_valid, &s_state.completion_blocked); save_state(); send_oldest(); update_display(); }
 }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
