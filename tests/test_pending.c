@@ -10,5 +10,9 @@ int main(void) {
   assert(sync_pending_promote(&q,&p,true)==SYNC_PUSH_FULL && q.count==3);
   p.id=2; p.weights[0]=101; assert(sync_pending_promote(&q,&p,true)==SYNC_PUSH_CONFLICT && q.count==3);
   assert(sync_pending_promote(&q,&p,false)==SYNC_PUSH_IDENTICAL);
+  /* The same production helper is used by startup and ACK handling. */
+  q.count=0; p=rec(10); assert(sync_pending_promote(&q,&p,true)==SYNC_PUSH_ADDED); q.count=0; assert(sync_pending_promote(&q,&p,true)==SYNC_PUSH_ADDED);
+  q.count=3; q.records[0]=rec(1); q.records[1]=rec(2); q.records[2]=rec(3); p=rec(10); assert(sync_pending_promote(&q,&p,true)==SYNC_PUSH_FULL&&q.count==3);
+  p=rec(2); p.weights[1]=101; assert(sync_pending_promote(&q,&p,true)==SYNC_PUSH_CONFLICT&&q.records[1].weights[1]==100);
   return 0;
 }
