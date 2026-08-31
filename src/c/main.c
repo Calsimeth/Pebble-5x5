@@ -156,7 +156,6 @@ static AppTimer *s_rest_timer;
 static bool s_sync_ready;
 static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
-static SyncMachine s_sync_machine;
 static SyncAdapter s_sync_adapter;
 static DictionaryIterator *s_sync_iterator;
 static char s_sync_wire[128];
@@ -858,7 +857,6 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   load_state();
-  sync_machine_init(&s_sync_machine, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0);
   sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
       sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,
       sync_cancel_adapter, NULL);
