@@ -1,0 +1,6 @@
+#include <assert.h>
+#include "../src/c/sync_adapter.h"
+typedef struct { int begin,write,send,timers,cancels; bool fail_timer; } Fake;
+static bool b(void *p){return !((Fake*)p)->begin;} static bool w(void *p){return !((Fake*)p)->write;} static bool s(void *p){return !((Fake*)p)->send;}
+static bool timer(uint32_t seconds,void *p){Fake*f=p;assert(seconds==5||seconds==15||seconds==30||seconds==60);if(f->fail_timer)return false;f->timers++;return true;} static void cancel(void*p){((Fake*)p)->cancels++;}
+int main(void){Fake f={0};SyncAdapter a;sync_adapter_init(&a,9,b,w,s,timer,cancel,&f);f.write=1;assert(sync_adapter_start(&a)==false&&a.machine.state==SYNC_WAITING_RETRY&&f.timers==1);sync_adapter_retry_elapsed(&a);f.write=0;assert(sync_adapter_start(&a)&&a.machine.state==SYNC_WAITING_ACK);assert(!sync_adapter_ack(&a,8));assert(sync_adapter_ack(&a,9)&&f.cancels==0);f.begin=1;sync_adapter_init(&a,9,b,w,s,timer,cancel,&f);assert(!sync_adapter_start(&a)&&a.machine.state==SYNC_WAITING_RETRY);sync_adapter_retry_elapsed(&a);f.begin=0;f.send=1;assert(!sync_adapter_start(&a)&&a.machine.state==SYNC_WAITING_RETRY);sync_adapter_deinit(&a);f.fail_timer=true;sync_adapter_init(&a,9,b,w,s,timer,cancel,&f);assert(!sync_adapter_start(&a)&&!a.timer_registered);return 0;}
