@@ -243,10 +243,12 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
     graphics_draw_text(ctx,"History",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
     char header[16];snprintf(header,sizeof header,"%d/%d",s_calendar_month,s_calendar_year);graphics_draw_text(ctx,header,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
-    int cw=b.size.w/7, top=34, ch=(b.size.h-top)/5;
+    int cw=b.size.w/7, top=46, ch=(b.size.h-top)/6;
+    static const char *weekdays[] = {"S","M","T","W","T","F","S"};
+    for(int x=0;x<7;x++) graphics_draw_text(ctx,weekdays[x],fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw,32,cw,14),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     for(int x=0;x<7;x++) graphics_draw_line(ctx,GPoint(x*cw,top),GPoint(x*cw,top+ch*6));
     for(int y=0;y<=6;y++) graphics_draw_line(ctx,GPoint(0,top+y*ch),GPoint(b.size.w,top+y*ch));
-    for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;char v[3];snprintf(v,sizeof v,"%d",d);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(s_calendar.mask&(1u<<(d-1)))graphics_fill_circle(ctx,GPoint(x*cw+cw/2,top+y*ch+ch-4),2);}
+    for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;char v[4];snprintf(v,sizeof v,"%d",d);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(s_calendar.mask&(1u<<(d-1)))graphics_fill_circle(ctx,GPoint(x*cw+cw/2,top+y*ch+ch-4),2);}
   } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data) && s_progress_data.total_points) {
     int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<s_progress_data.total_points;i++){if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
     if(min!=INT32_MAX){for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/19,x1=i*b.size.w/19;int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,b.size.h-16)+8,y1=graph_coordinate(s_progress_data.points[i].w,min,max,b.size.h-16)+8;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}}
