@@ -7,7 +7,12 @@ handlers.appmessage({payload:{message:JSON.stringify(a)}}); assert.strictEqual(s
 handlers.appmessage({payload:{message:JSON.stringify(a)}}); assert.strictEqual(sent.pop().ack,7);
 var conflict=Object.assign({},a,{t:124}); sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(conflict)}}); assert.strictEqual(sent.length,0);
 handlers.appmessage({payload:{message:'bad'}}); assert.notStrictEqual(sent.pop().ack,7);
-data.historyIndex='{bad'; var orphan=JSON.stringify({schemaVersion:1,records:[Object.assign({},a,{id:8})]}); data['historyChunk:0001']=orphan; assert(sync.store(Object.assign({},a,{id:8}))); assert.strictEqual(data['historyChunk:0001'],orphan);
-failKey='historyChunk:0002'; sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(Object.assign({},a,{id:9}))}}); assert.strictEqual(sent.length,0); failKey=null;
+data.historyIndex='{bad'; var orphan=JSON.stringify({schemaVersion:1,records:[Object.assign({},a,{id:8})]}); data['historyChunk:0002']=orphan; assert(sync.store(Object.assign({},a,{id:8}))); assert.strictEqual(data['historyChunk:0002'],orphan);
+failKey='historyChunk:0003'; sent.length=0; var indexBefore=data.historyIndex; handlers.appmessage({payload:{message:JSON.stringify(Object.assign({},a,{id:9}))}}); assert.strictEqual(sent.length,0); assert.strictEqual(data.historyIndex,indexBefore); failKey=null;
+failWrite=1; assert(!sync.store(Object.assign({},a,{id:10}))); assert.strictEqual(data['historyChunk:0003'],undefined); failWrite=0;
 failWrite=2; assert(!sync.store(Object.assign({},a,{id:10}))); failWrite=0; assert(sync.store(Object.assign({},a,{id:10})));
+var corrupt='not-json'; data['historyChunk:0099']=corrupt; var beforeCorrupt=data['historyChunk:0099']; assert(sync.store(Object.assign({},a,{id:11}))); assert.strictEqual(data['historyChunk:0099'],beforeCorrupt);
+['v','e','r'].forEach(function(k){var bad=Object.assign({},a); if(k==='v')bad.v=2; if(k==='e')bad.e=[0,3,4]; if(k==='r')bad.r=Array(14).fill(5); sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(bad)}}); assert(sent.length===0||sent.pop().ack!==bad.id);});
+var beforeConflictIndex=data.historyIndex, beforeConflictChunk=data['historyChunk:0001']; sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(Object.assign({},a,{wt:[181,180,260]}))}}); assert.strictEqual(sent.length,0); assert.strictEqual(data.historyIndex,beforeConflictIndex); assert.strictEqual(data['historyChunk:0001'],beforeConflictChunk);
+var duplicateIndex=data.historyIndex; handlers.appmessage({payload:{message:JSON.stringify(a)}}); assert.strictEqual(sent.pop().ack,7); assert.strictEqual(data.historyIndex,duplicateIndex);
 console.log('sync js tests passed');

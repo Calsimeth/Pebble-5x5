@@ -156,7 +156,7 @@ static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
 static SyncMachine s_sync_machine;
 static void send_oldest(void);
-static void retry_sync(void *context) { (void)context; s_sync_ack_timer = NULL; sync_machine_timeout(&s_sync_machine); s_sync_in_flight = false; s_sync_ready = true; send_oldest(); }
+static void retry_sync(void *context) { (void)context; s_sync_ack_timer = NULL; sync_machine_timeout(&s_sync_machine); sync_machine_retry_elapsed(&s_sync_machine); s_sync_in_flight = false; s_sync_ready = true; send_oldest(); }
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
