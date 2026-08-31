@@ -19,9 +19,9 @@ size_t weight_format(Weight weight, char *buffer, size_t size) {
 
 PlateInventory plate_inventory_default(void) {
   PlateInventory i = { .count = 7, .bar_weight = WEIGHT_LB(45), .plates = {
-    {WEIGHT_LB(45), 2, true}, {WEIGHT_LB(35), 0, false}, {WEIGHT_LB(25), 2, true},
-    {WEIGHT_LB(15), 0, false}, {WEIGHT_LB(10), 2, true}, {WEIGHT_LB(5), 2, true},
-    {WEIGHT_LB(2) + 2, 2, true}
+    {WEIGHT_LB(45), 2, true}, {WEIGHT_LB(35), 0, false}, {WEIGHT_LB(25), 1, true},
+    {WEIGHT_LB(15), 0, false}, {WEIGHT_LB(10), 1, true}, {WEIGHT_LB(5), 1, true},
+    {WEIGHT_LB(2) + 2, 1, true}
   }};
   return i;
 }
