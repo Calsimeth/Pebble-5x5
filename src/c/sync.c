@@ -19,6 +19,7 @@ SyncPushResult sync_queue_push_result(SyncQueue *q, const SyncRecord *r) {
 }
 bool sync_queue_push(SyncQueue *q, const SyncRecord *r) { return sync_queue_push_result(q,r) == SYNC_PUSH_ADDED; }
 uint32_t sync_highest_retained_id(const SyncQueue *q, const SyncRecord *p, bool pv) { uint32_t h=0; if(q) for(uint8_t i=0;i<q->count && i<SYNC_QUEUE_CAPACITY;i++) if(q->records[i].id>h) h=q->records[i].id; if(pv && p && p->id>h) h=p->id; return h; }
+bool sync_allocate_id(uint32_t *counter, const SyncQueue *q, const SyncRecord *p, bool pv, uint32_t *out) { if(!counter||!out)return false; uint32_t id=*counter; for(uint32_t tries=0;tries<UINT32_MAX-1 && tries<16;tries++){id++;if(!id)id++;bool used=pv&&p&&p->id==id;if(q)for(uint8_t i=0;i<q->count&&i<SYNC_QUEUE_CAPACITY;i++)if(q->records[i].id==id)used=true;if(!used){*counter=id;*out=id;return true;}}return false; }
 int sync_record_to_json(const SyncRecord *r, char *o, size_t cap) {
   if (!sync_record_valid(r) || !o || !cap) return 0;
   int n=snprintf(o,cap,"{\"v\":%u,\"id\":%lu,\"t\":%ld,\"w\":%u,\"e\":[%u,%u,%u],\"wt\":[%u,%u,%u],\"r\":[",r->schema_version,(unsigned long)r->id,(long)r->completed_at,r->workout,r->exercise_ids[0],r->exercise_ids[1],r->exercise_ids[2],r->weights[0],r->weights[1],r->weights[2]);
