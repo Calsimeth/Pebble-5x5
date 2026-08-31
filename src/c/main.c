@@ -665,6 +665,23 @@ static void complete_set(void) {
     return;
   }
   if (s_state.set_index >= current->sets) {
+    /* History placement is the commit point for a completed workout.  Keep a
+     * complete rollback image while constructing and queueing the record so
+     * allocation, encoding, or collision failures cannot partially commit
+     * progression or advisory state. */
+    Weight weights_before[5]; uint8_t streaks_before[5], pending_before[5];
+    uint8_t failure_reviewed_before[5], plateau_reviewed_before[5], gap_reviewed_before[5];
+    uint8_t active_before = s_state.active, exercise_before = s_state.exercise_index;
+    uint8_t set_before = s_state.set_index, next_workout_before = s_state.next_workout;
+    int32_t last_completed_before = s_state.last_completed;
+    uint8_t pending_valid_before = s_state.pending_valid;
+    SyncRecord pending_record_before = s_state.pending_record;
+    memcpy(weights_before, s_state.weights, sizeof weights_before);
+    memcpy(streaks_before, s_state.failure_streaks, sizeof streaks_before);
+    memcpy(pending_before, s_state.deload_pending, sizeof pending_before);
+    memcpy(failure_reviewed_before, s_state.failure_reviewed, sizeof failure_reviewed_before);
+    memcpy(plateau_reviewed_before, s_state.plateau_reviewed, sizeof plateau_reviewed_before);
+    memcpy(gap_reviewed_before, s_state.gap_reviewed, sizeof gap_reviewed_before);
     bool success = exercise_succeeded(s_state.work_reps[s_state.exercise_index], current->sets);
     size_t weight_index = exercise_weight_index(s_state.active_workout, s_state.exercise_index);
     Weight old_weight = s_state.active_weights[s_state.exercise_index];
@@ -680,15 +697,15 @@ static void complete_set(void) {
       s_state.last_completed = (int32_t)time(NULL);
       memset(s_state.gap_reviewed, 0, sizeof s_state.gap_reviewed);
       SyncRecord record = {0};
-      if (!allocate_record_id(&s_state, &record.id)) { s_state.completion_blocked = 1; s_state.active = 1; s_state.exercise_index = 2; s_state.set_index = 0; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
+      if (!allocate_record_id(&s_state, &record.id)) { memcpy(s_state.weights, weights_before, sizeof weights_before); memcpy(s_state.failure_streaks, streaks_before, sizeof streaks_before); memcpy(s_state.deload_pending, pending_before, sizeof pending_before); memcpy(s_state.failure_reviewed, failure_reviewed_before, sizeof failure_reviewed_before); memcpy(s_state.plateau_reviewed, plateau_reviewed_before, sizeof plateau_reviewed_before); memcpy(s_state.gap_reviewed, gap_reviewed_before, sizeof gap_reviewed_before); s_state.active=active_before; s_state.exercise_index=exercise_before; s_state.set_index=set_before; s_state.next_workout=next_workout_before; s_state.last_completed=last_completed_before; s_state.completion_blocked=1; s_state.pending_valid=pending_valid_before; s_state.pending_record=pending_record_before; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
       uint8_t sets[3]; for (uint8_t e=0;e<3;e++) sets[e]=WORKOUTS[s_state.active_workout][e].sets;
       uint8_t deload_mask=0; for (uint8_t e=0;e<5;e++) if (s_state.deload_pending[e]) deload_mask |= (uint8_t)(1u << e);
       uint16_t snapshot[3]; for (uint8_t e=0;e<3;e++) snapshot[e]=(uint16_t)s_state.active_weights[e];
-      if (!sync_completion_build_record(&record, record.id, s_state.active_workout, s_state.last_completed, snapshot, s_state.work_reps, sets, deload_mask)) { s_state.active=1; s_state.exercise_index=2; s_state.set_index=0; s_state.completion_blocked=1; save_state(); snprintf(s_feedback,sizeof s_feedback,"Sync Required"); update_display(); return; }
+      if (!sync_completion_build_record(&record, record.id, s_state.active_workout, s_state.last_completed, snapshot, s_state.work_reps, sets, deload_mask)) { memcpy(s_state.weights, weights_before, sizeof weights_before); memcpy(s_state.failure_streaks, streaks_before, sizeof streaks_before); memcpy(s_state.deload_pending, pending_before, sizeof pending_before); memcpy(s_state.failure_reviewed, failure_reviewed_before, sizeof failure_reviewed_before); memcpy(s_state.plateau_reviewed, plateau_reviewed_before, sizeof plateau_reviewed_before); memcpy(s_state.gap_reviewed, gap_reviewed_before, sizeof gap_reviewed_before); s_state.active=active_before; s_state.exercise_index=exercise_before; s_state.set_index=set_before; s_state.next_workout=next_workout_before; s_state.last_completed=last_completed_before; s_state.completion_blocked=1; s_state.pending_valid=pending_valid_before; s_state.pending_record=pending_record_before; save_state(); snprintf(s_feedback,sizeof s_feedback,"Sync Required"); update_display(); return; }
       SyncPushResult result = sync_queue_push_result(&s_state.outbox, &record);
       if (result == SYNC_PUSH_FULL) { s_state.pending_record = record; s_state.pending_valid = 1; snprintf(s_feedback, sizeof s_feedback, "Sync Required"); }
       else if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { save_state(); send_oldest(); }
-      else { s_state.completion_blocked = 1; s_state.active = 1; s_state.exercise_index = 2; s_state.set_index = 0; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
+      else { memcpy(s_state.weights, weights_before, sizeof weights_before); memcpy(s_state.failure_streaks, streaks_before, sizeof streaks_before); memcpy(s_state.deload_pending, pending_before, sizeof pending_before); memcpy(s_state.failure_reviewed, failure_reviewed_before, sizeof failure_reviewed_before); memcpy(s_state.plateau_reviewed, plateau_reviewed_before, sizeof plateau_reviewed_before); memcpy(s_state.gap_reviewed, gap_reviewed_before, sizeof gap_reviewed_before); s_state.active=active_before; s_state.exercise_index=exercise_before; s_state.set_index=set_before; s_state.next_workout=next_workout_before; s_state.last_completed=last_completed_before; s_state.completion_blocked=1; s_state.pending_valid=pending_valid_before; s_state.pending_record=pending_record_before; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
       s_state.next_workout = s_state.active_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A;
       s_saved = true;
     } else generate_warmup();
