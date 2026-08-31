@@ -261,8 +261,10 @@ static void send_oldest(void) {
   if (n <= 0 || n >= (int)sizeof wire - 8) return;
   n += snprintf(wire+n, sizeof wire-n, "],\"c\":%u,\"d\":%u}", r->complete, r->deload_mask);
   if (n <= 0 || n >= (int)sizeof wire) return;
-  DictionaryIterator *out; if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
-  dict_write_cstring(out, MESSAGE_KEY_message, wire); s_sync_in_flight = true; app_message_outbox_send();
+  DictionaryIterator *out; if (app_message_outbox_begin(&out) != APP_MSG_OK) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); return; }
+  if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); return; }
+  if (app_message_outbox_send() != APP_MSG_OK) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); return; }
+  s_sync_in_flight = true;
   if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL);
 }
 
@@ -597,6 +599,9 @@ static void complete_set(void) {
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
   s_state.work_reps[s_state.exercise_index][s_state.set_index] = s_selected_reps;
   save_state();
+  if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1 && s_state.outbox.count >= SYNC_QUEUE_CAPACITY && s_state.pending_valid) {
+    snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return;
+  }
   s_selected_reps = 5;
   s_state.set_index++;
   bool next_set_same_exercise = s_state.set_index < current->sets;

@@ -25,7 +25,15 @@ function readIndex() {
 }
 function store(record) {
   var index = readIndex();
-  if (index.ids.indexOf(String(record.id)) >= 0) return true;
+  // Reconcile orphan chunks even when the index parses successfully.
+  for (var i = 0; typeof localStorage.length === 'number' && i < localStorage.length; i++) {
+    var occupied = localStorage.key(i);
+    if (!occupied || occupied.indexOf(CHUNK_PREFIX) !== 0) continue;
+    try { var existing = JSON.parse(localStorage.getItem(occupied)); (existing.records || []).forEach(function(r) { if (r && r.id && index.ids.indexOf(String(r.id)) < 0) index.ids.push(String(r.id)); }); var chunkNo = parseInt(occupied.slice(CHUNK_PREFIX.length), 10); if (chunkNo >= index.nextChunk) index.nextChunk = chunkNo + 1; } catch (ignore) { console.log('history chunk ignored'); }
+  }
+  if (index.ids.indexOf(String(record.id)) >= 0) {
+    try { localStorage.setItem(INDEX_KEY, JSON.stringify(index)); return true; } catch (e) { console.log('history index repair failed'); return false; }
+  }
   var number = index.nextChunk;
   var key;
   do { key = CHUNK_PREFIX + String(number++).padStart(4, '0'); } while (localStorage.getItem(key) !== null);
