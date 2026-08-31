@@ -296,7 +296,7 @@ static void query_send(const char *type) {
   else { dict_write_uint8(it,MESSAGE_KEY_exercise,s_progress_exercise); dict_write_uint8(it,MESSAGE_KEY_page,s_progress_page); }
   s_query_connected=app_message_outbox_send()==APP_MSG_OK;
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
-  if(s_query_connected && type[0]=='p' && STRONGLIFTS_FIXTURE_ID==1){ProgressPoint fixture_points[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_assembly_reset(&s_progress_data);progress_chunk_add(&s_progress_data,s_query_id,s_progress_exercise,s_progress_page,1,0,1,5,fixture_points);query_controller_response(&s_query_controller,true,true);update_display();return;}
+  if(s_query_connected && type[0]=='p' && STRONGLIFTS_FIXTURE_ID<=3){ProgressPoint fixture_points[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_assembly_reset(&s_progress_data);progress_chunk_add(&s_progress_data,s_query_id,s_progress_exercise,s_progress_page,1,0,1,5,fixture_points);query_controller_response(&s_query_controller,true,true);update_display();return;}
 #endif
   if(s_query_connected){s_query_controller.state=QUERY_WAITING_RESPONSE;s_query_timer=app_timer_register(5000,query_timeout,NULL);if(!s_query_timer)query_cancel();}else query_cancel();
 }
@@ -325,6 +325,9 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circles.x + n * (circles.diameter + circles.gap) + circles.diameter / 2;
     int16_t y = circles.y + circles.diameter / 2;
+    /* Flint's narrow monochrome display cannot fit five circle labels cleanly
+     * in one row; the alternating offsets preserve the circle text. */
+    y += PBL_IF_COLOR_ELSE(0, (n == 1 || n == 3) ? 10 : -10);
     bool done = n < s_state.set_index;
     if (done) {
       graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)); graphics_fill_circle(ctx, GPoint(x, y), circles.diameter / 2);
