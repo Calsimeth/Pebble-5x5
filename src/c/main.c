@@ -238,7 +238,7 @@ static void resume_deferred_query(void);
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
 static void load_visual_fixture(void) {
   s_calendar_year=2026; s_calendar_month=8; s_screen=SCREEN_HISTORY; s_query_connected=true;
-  s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)}; s_calendar_valid=true;
+  s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30)}; s_calendar_valid=true;
   progress_assembly_reset(&s_progress_data); s_progress_exercise=0;
 #if STRONGLIFTS_FIXTURE_ID == 1
   s_screen=SCREEN_HISTORY;
