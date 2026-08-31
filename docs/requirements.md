@@ -55,15 +55,15 @@ The user must be able to:
 
 ## 4. Rest timer and feedback
 
-The default rest time between work sets is three minutes.
+The default work-set rest alert threshold is three minutes. Rest is an elapsed timer that starts at 0:00 after a qualifying work set and continues upward indefinitely; it does not automatically end at three minutes.
 
 When vibration is available:
 
 - At 1 minute 30 seconds, issue one short, subtle vibration.
-- At 3 minutes, issue two short vibrations or one clearly longer vibration.
+- At 3 minutes, issue one unmistakable custom pattern of three long pulses separated by short pauses.
 - Make the final notification more noticeable than the halfway notification.
 
-The user must be able to start the next set before the timer expires. Vibration must be configurable and must fail gracefully on hardware without vibration support.
+The user must be able to start the next set while the elapsed timer is running. Up/Down must remain available to select 0–5 repetitions before Select records the set. Vibration must be configurable and must fail gracefully on hardware without vibration support.
 
 Warm-up rest behavior is separate from work-set rest behavior. Its exact default remains a design decision.
 

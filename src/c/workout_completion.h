@@ -6,12 +6,12 @@
 #include "warmups.h"
 #include "sync.h"
 
-#define WORKOUT_STORAGE_SCHEMA 9
+#define WORKOUT_STORAGE_SCHEMA 10
 typedef enum { WORKOUT_A = 0, WORKOUT_B = 1 } WorkoutType;
 
 typedef struct {
   uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
-  uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
+  uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted, completion_alerted; uint32_t rest_elapsed;
   Weight weights[5]; Weight active_weights[3]; uint8_t work_reps[3][5], failure_streaks[5];
   PlateCounts inventory_counts; uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
   int32_t last_completed; uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], plateau_reviewed[5], accepted_deloads[5];

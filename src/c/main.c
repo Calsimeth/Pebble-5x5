@@ -551,6 +551,7 @@ static void load_state(void) {
   if (version == 9) {
     PersistedStateV9 old;
     if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
+        (old.schema_version = STORAGE_SCHEMA_VERSION) &&
         workout_state_valid((PersistedState *)&old) && sync_queue_valid(&old.outbox) &&
         (!old.pending_valid || sync_record_valid(&old.pending_record))) {
       memset(&s_state, 0, sizeof s_state);

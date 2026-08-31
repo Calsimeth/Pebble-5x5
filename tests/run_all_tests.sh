@@ -9,5 +9,7 @@ for test in tests/test_sync.c tests/test_sync_allocator.c tests/test_sync_state.
   gcc -std=c11 -Wall -Wextra -Werror -Isrc/c "$test" $sources -o "$tmp/$name"
   "$tmp/$name"
 done
+gcc -std=c11 -Wall -Wextra -Werror tests/test_rest_timer.c -o "$tmp/test_rest_timer"
+"$tmp/test_rest_timer"
 node tests/test_sync.js
 sh tests/verify_fixtures.sh

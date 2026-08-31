@@ -23,7 +23,7 @@ The first six watch-only vertical slices are implemented. Working weights are st
 
 Warm-ups start with the configured empty bar and five repetitions. The calculator inspects the 45 lb plates actually used by the work-set configuration: zero produces only the bar, one may add one evenly-spaced intermediate for work weights at or above 135 lb, and two may add two for work weights at or above 225 lb. Each target is rounded down through the plate calculator, and duplicates or unachievable targets are omitted. Plans are capped at three sets.
 
-During a warm-up, Select marks it done and Down skips it; only completing the final warm-up starts the normal three-minute work-set rest. Up opens plates for the current warm-up weight, and Select returns without changing set state. A 45 lb exercise begins work sets immediately. Warm-ups are not counted toward 5x5 or deadlift 1x5.
+During a warm-up, Select marks it done and Down skips it; warm-ups do not start work-set rest. Up opens plates for the current warm-up weight, and Select returns without changing set state. A 45 lb exercise begins work sets immediately. Warm-ups are not counted toward 5x5 or deadlift 1x5.
 
 The project uses the current Pebble SDK project layout:
 
