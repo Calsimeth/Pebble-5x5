@@ -238,8 +238,10 @@ static void query_cancel(void) { if(s_query_timer){app_timer_cancel(s_query_time
 static void history_progress_draw(Layer *layer, GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_stroke_color(ctx,palette_primary_text());
   if(s_screen==SCREEN_HISTORY && s_calendar_valid) {
+    graphics_draw_text(ctx,"History",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
-    int cw=b.size.w/7, top=24, ch=(b.size.h-top)/6;
+    char header[16];snprintf(header,sizeof header,"%d/%d",s_calendar_month,s_calendar_year);graphics_draw_text(ctx,header,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
+    int cw=b.size.w/7, top=34, ch=(b.size.h-top)/5;
     for(int x=0;x<7;x++) graphics_draw_line(ctx,GPoint(x*cw,top),GPoint(x*cw,top+ch*6));
     for(int y=0;y<=6;y++) graphics_draw_line(ctx,GPoint(0,top+y*ch),GPoint(b.size.w,top+y*ch));
     for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;char v[3];snprintf(v,sizeof v,"%d",d);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(s_calendar.mask&(1u<<(d-1)))graphics_fill_circle(ctx,GPoint(x*cw+cw/2,top+y*ch+ch-4),2);}
@@ -629,6 +631,7 @@ static void update_display(void) {
   if (s_exercise_layer) layer_set_hidden(text_layer_get_layer(s_exercise_layer), dedicated);
   if (s_hint_layer) layer_set_hidden(text_layer_get_layer(s_hint_layer), dedicated);
   if (s_history_progress_layer) layer_set_hidden(s_history_progress_layer, !dedicated);
+  if (dedicated) { text_layer_set_text(s_title_layer, ""); text_layer_set_text(s_exercise_layer, ""); text_layer_set_text(s_hint_layer, ""); }
   set_workout_layer_visible(s_state.active && !s_state.warmup_active && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
