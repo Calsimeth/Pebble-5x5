@@ -157,6 +157,11 @@ static AppTimer *s_sync_ack_timer;
 static SyncMachine s_sync_machine;
 static void send_oldest(void);
 static void retry_sync(void *context) { (void)context; s_sync_ack_timer = NULL; sync_machine_timeout(&s_sync_machine); sync_machine_retry_elapsed(&s_sync_machine); s_sync_in_flight = false; s_sync_ready = true; send_oldest(); }
+static void schedule_sync_retry(void) {
+  if (s_sync_ack_timer || s_sync_machine.state != SYNC_WAITING_RETRY) return;
+  AppTimer *timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL);
+  if (timer) s_sync_ack_timer = timer;
+}
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
@@ -262,21 +267,21 @@ static void save_state(void) {
   persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
 }
 
-static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; s_sync_in_flight = false; sync_machine_transport(&s_sync_machine, false); if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL); }
+static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; s_sync_in_flight = false; sync_machine_transport(&s_sync_machine, false); schedule_sync_retry(); }
 static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; }
 static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
-  if (r && id->value->uint32 == r->id && sync_machine_ack(&s_sync_machine, r->id) && sync_queue_ack(&s_state.outbox, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; if (s_state.pending_valid && sync_queue_push(&s_state.outbox, &s_state.pending_record)) s_state.pending_valid = 0; if (s_state.completion_blocked && !s_state.pending_valid) s_state.completion_blocked = 0; save_state(); send_oldest(); update_display(); }
+  if (r && id->value->uint32 == r->id && sync_machine_ack(&s_sync_machine, r->id) && sync_queue_ack(&s_state.outbox, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; if (s_state.pending_valid) { SyncPushResult result = sync_queue_push_result(&s_state.outbox, &s_state.pending_record); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) s_state.pending_valid = 0; } if (s_state.completion_blocked && !s_state.pending_valid) s_state.completion_blocked = 0; save_state(); send_oldest(); update_display(); }
 }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
   s_sync_machine.head_id = r->id;
   char wire[128]; int n = sync_record_to_json(r, wire, sizeof wire); if (n <= 0) return;
-  DictionaryIterator *out; if (!sync_machine_begin(&s_sync_machine, app_message_outbox_begin(&out) == APP_MSG_OK)) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL); return; }
-  if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); return; }
-  if (app_message_outbox_send() != APP_MSG_OK) { sync_machine_transport(&s_sync_machine, false); if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL); return; }
+  DictionaryIterator *out; if (!sync_machine_begin(&s_sync_machine, app_message_outbox_begin(&out) == APP_MSG_OK)) { schedule_sync_retry(); return; }
+  if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { sync_machine_transport(&s_sync_machine, false); schedule_sync_retry(); return; }
+  if (app_message_outbox_send() != APP_MSG_OK) { sync_machine_transport(&s_sync_machine, false); schedule_sync_retry(); return; }
   sync_machine_transport(&s_sync_machine, true); s_sync_in_flight = true;
   if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL);
 }
@@ -601,11 +606,12 @@ static void update_display(void) {
   } else {
     const ExerciseDefinition *current = &WORKOUTS[workout][s_state.exercise_index];
     char weight[16]; weight_format(current_weight(workout, s_state.exercise_index), weight, sizeof weight);
-    snprintf(s_exercise_text, sizeof(s_exercise_text), "%s\nSet %d of %d\n%s\n5 reps",
-             current->name, s_state.set_index + 1, current->sets, weight);
+    snprintf(s_exercise_text, sizeof(s_exercise_text), "%s\nSet %d of %d\n%s\n%d reps",
+             current->name, s_state.set_index + 1, current->sets, weight, s_state.selected_reps);
     snprintf(s_hint_text, sizeof(s_hint_text), s_confirm_abandon ? "Select: abandon" : "Up: plates");
   }
-  if (s_state.outbox.count >= SYNC_QUEUE_CAPACITY) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
+  if (s_state.completion_blocked) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
+  else if (s_state.outbox.count >= SYNC_QUEUE_CAPACITY) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
   else if (s_state.outbox.count > 0) snprintf(s_hint_text, sizeof s_hint_text, "Not Synced");
   text_layer_set_text(s_exercise_layer, s_exercise_text);
   text_layer_set_text(s_hint_layer, s_hint_text);
@@ -847,7 +853,7 @@ static void init(void) {
 #endif
   app_message_register_outbox_failed(sync_failed);
   AppMessageResult app_result = app_message_open(128, 128); s_sync_ready = app_result == APP_MSG_OK;
-  if (s_state.pending_valid && sync_queue_push(&s_state.outbox, &s_state.pending_record)) { s_state.pending_valid = 0; save_state(); }
+  if (s_state.pending_valid) { SyncPushResult result = sync_queue_push_result(&s_state.outbox, &s_state.pending_record); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { s_state.pending_valid = 0; save_state(); } }
   if (s_sync_ready) send_oldest();
   s_window = window_create();
   window_set_background_color(s_window, palette_background());
