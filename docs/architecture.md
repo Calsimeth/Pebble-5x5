@@ -61,7 +61,7 @@ The watch must persist the minimum state needed to resume safely:
 - Last completed workout date
 - Next expected Workout A/B value
 
-Traditional Pebble persistent storage is constrained, historically around 4 KB per app, so records should use compact fixed-width or versioned binary representations where appropriate.
+Traditional Pebble persistent storage is constrained, historically around 4 KB per app, so the active state uses a compact schema-9 representation; history leaves the watch as bounded compact JSON.
 
 ### Tier 2: watch synchronization outbox
 
@@ -99,7 +99,7 @@ Implemented flow:
 5. Only after acknowledgement may the watch remove the record from its outbox.
 6. Repeated delivery of the same identifier must not create duplicates.
 
-The phone stores `schemaVersion`, `historyIndex`, and separate `historyChunk:0001`-style JSON values in PebbleKit JS `localStorage`. It scans all chunk keys when the index is malformed or stale, reconciles orphan records by ID, chooses an unused key, and writes the chunk before updating the index. It sends ACK only after both writes succeed. Corrupt indexes or chunks do not trigger silent deletion or pruning. Schema-8 state validates queue count, IDs, workout IDs, exercise IDs, weight snapshots, repetition counts, and duplicate IDs; invalid queued data is discarded as unusable while active workout state is preserved.
+The phone stores `schemaVersion`, `historyIndex`, and separate `historyChunk:0001`-style JSON values in PebbleKit JS `localStorage`. It scans all chunk keys before every store, reconciles orphan records by ID, chooses an unused key, and writes the chunk before updating the index. It sends ACK only after both writes succeed. Corrupt indexes or chunks are preserved byte-for-byte; orphan chunks are recovered without silent deletion, overwriting, or pruning. Schema-9 state validates queue count, IDs, workout IDs, exercise IDs, weight snapshots, repetition counts, duplicate IDs, selected repetitions, and blocked completion state; invalid queued data is rejected while active workout state is preserved.
 
 AppMessage payloads are size-limited, so large records may require chunking. Protocol messages should contain a schema version and message type.
 

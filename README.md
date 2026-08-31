@@ -103,4 +103,6 @@ Slice eight adds optional deload guidance. Three consecutive failures or a gap o
 
 The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed; no emulator validation has been run for slice eight yet.
 
+Slice nine uses schema 9: three queued records plus one pending completion, with a fifth completion blocked before its final-set repetitions are written. Selected repetitions and the blocked state survive restart; IDs are repaired against queued and pending records with zero-skipping wraparound. The v1 JSON wire shape is `v,id,t,w,e,wt,r,c,d`, sent through AppMessage and acknowledged only after phone chunk and index storage. Retries use 5, 15, 30, 60, then 60 seconds. Phone storage scans all chunk keys, preserves corrupt/orphan data, and repairs interrupted index writes without pruning.
+
 The remaining product work is described in [the development discussion guide](docs/development-guide.md). CSV import/export remains unsupported and aspirational; see [the feasibility report](docs/import-export-feasibility.md).
