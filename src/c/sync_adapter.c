@@ -18,9 +18,11 @@ bool sync_adapter_start(SyncAdapter *a) {
   if (!sync_machine_begin(&a->machine,a->begin(a->context))) { sync_adapter_schedule_retry(a); return false; }
   if (!a->write(a->context)) { enter_retry(a); return false; }
   if (!a->send(a->context)) { enter_retry(a); return false; }
-  sync_machine_transport(&a->machine,true); return true;
+  sync_machine_transport(&a->machine,true);
+  if (!a->timer || !a->timer(sync_machine_retry_delay(&a->machine),a->context)) { sync_machine_timeout(&a->machine); a->machine.timer_active=false; return false; }
+  a->timer_registered=true; return true;
 }
-bool sync_adapter_transport(SyncAdapter *a, bool delivered) { if (!a) return false; if (!delivered) { enter_retry(a); return false; } sync_machine_transport(&a->machine,true); return true; }
+bool sync_adapter_transport(SyncAdapter *a, bool delivered) { if (!a) return false; if (!delivered) { enter_retry(a); return false; } sync_machine_transport(&a->machine,true); if (!a->timer || !a->timer(sync_machine_retry_delay(&a->machine),a->context)) { sync_machine_timeout(&a->machine); a->machine.timer_active=false; return false; } a->timer_registered=true; return true; }
 bool sync_adapter_ack(SyncAdapter *a, uint32_t id) { if (!a || !sync_machine_ack(&a->machine,id)) return false; if (a->timer_registered && a->cancel) a->cancel(a->context); a->timer_registered=false; return true; }
 void sync_adapter_timeout(SyncAdapter *a) { if (!a) return; a->timer_registered=false; sync_machine_timeout(&a->machine); sync_adapter_schedule_retry(a); }
 void sync_adapter_retry_elapsed(SyncAdapter *a) { if (!a) return; a->timer_registered=false; sync_machine_retry_elapsed(&a->machine); }
