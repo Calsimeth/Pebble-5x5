@@ -234,9 +234,11 @@ static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorW
 
 static void update_display(void);
 static void query_timeout(void *ctx);
+static void resume_deferred_query(void);
 static void query_cancel(void) { if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;} query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest(); }
 static void history_progress_draw(Layer *layer, GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_stroke_color(ctx,palette_primary_text());
+  graphics_context_set_text_color(ctx,GColorWhite); graphics_context_set_fill_color(ctx,palette_accent());
   if(s_screen==SCREEN_HISTORY && s_calendar_valid) {
     graphics_draw_text(ctx,"History",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
@@ -245,9 +247,14 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
     for(int x=0;x<7;x++) graphics_draw_line(ctx,GPoint(x*cw,top),GPoint(x*cw,top+ch*6));
     for(int y=0;y<=6;y++) graphics_draw_line(ctx,GPoint(0,top+y*ch),GPoint(b.size.w,top+y*ch));
     for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;char v[3];snprintf(v,sizeof v,"%d",d);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(s_calendar.mask&(1u<<(d-1)))graphics_fill_circle(ctx,GPoint(x*cw+cw/2,top+y*ch+ch-4),2);}
-  } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data)) {
+  } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data) && s_progress_data.total_points) {
     int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<s_progress_data.total_points;i++){if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
     if(min!=INT32_MAX){for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/19,x1=i*b.size.w/19;int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,b.size.h-16)+8,y1=graph_coordinate(s_progress_data.points[i].w,min,max,b.size.h-16)+8;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}}
+    graphics_draw_text(ctx,SETUP_WEIGHT_NAMES[s_progress_exercise],fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
+    graphics_draw_text(ctx,"lb",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,b.size.h-18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
+  } else {
+    const char *label = !s_query_connected ? (s_query_controller.state==QUERY_FAILED ? "Phone Needed" : "Loading") : (s_screen==SCREEN_HISTORY ? "No History" : "No Progress");
+    graphics_context_set_fill_color(ctx,GColorWhite); graphics_draw_text(ctx,label,fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,30,b.size.w,26),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
   }
 }
 static void back_click(ClickRecognizerRef recognizer, void *context);
@@ -263,6 +270,7 @@ static void query_send(const char *type) {
   s_query_connected=app_message_outbox_send()==APP_MSG_OK;
   if(s_query_connected){s_query_controller.state=QUERY_WAITING_RESPONSE;s_query_timer=app_timer_register(5000,query_timeout,NULL);if(!s_query_timer)query_cancel();}else query_cancel();
 }
+static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_peek(&s_state.outbox) && !s_sync_in_flight && s_sync_adapter.machine.state==SYNC_IDLE){char q[24];snprintf(q,sizeof q,"%s",s_deferred_query);s_deferred_query[0]=0;query_send(q);} }
 static void query_timeout(void *ctx){(void)ctx;s_query_timer=NULL;query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest();update_display();}
 
 static void workout_layer_update(Layer *layer, GContext *ctx) {
@@ -388,7 +396,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
     uint32_t acknowledged_id = id->value->uint32;
     SyncPushResult result = workout_completion_handle_ack(&s_state, acknowledged_id);
     s_sync_in_flight = false;
-    if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) send_oldest();
+    if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { send_oldest(); resume_deferred_query(); }
     else if (result == SYNC_PUSH_FULL || result == SYNC_PUSH_CONFLICT) s_state.completion_blocked = 1;
     save_state(); update_display();
   }
@@ -400,6 +408,7 @@ static void query_received(DictionaryIterator *i) {
 }
 static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }
 static void send_oldest(void) {
+  if (!query_controller_can_sync(&s_query_controller)) return;
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
   int n = sync_record_to_json(r, s_sync_wire, sizeof s_sync_wire); if (n <= 0) return;
   s_sync_adapter.machine.head_id = r->id;
