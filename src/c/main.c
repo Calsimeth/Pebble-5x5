@@ -280,7 +280,8 @@ static void begin_deload(uint8_t exercise) {
     .accepted_deloads = s_state.accepted_deloads[exercise],
     .pending = s_state.deload_pending[exercise],
     .gap_reviewed = s_state.gap_reviewed[exercise],
-    .failure_reviewed = s_state.failure_reviewed[exercise] };
+    .failure_reviewed = s_state.failure_reviewed[exercise],
+    .plateau_reviewed = s_state.plateau_reviewed[exercise] };
   bool gap = s_state.last_completed > 0 && deload_gap_due(time(NULL), s_state.last_completed);
   if (!deload_should_prompt(&d, gap)) return;
   s_deload = true; s_deload_adjusting = false; s_setup_item = exercise;
@@ -675,7 +676,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     update_display();
   } else if (!s_state.active) {
     for (uint8_t n = 0; n < 5; n++) {
-      DeloadState d = { .failure_streak = s_state.failure_streaks[n], .accepted_deloads = s_state.accepted_deloads[n], .failure_reviewed = s_state.plateau_reviewed[n] };
+      DeloadState d = { .failure_streak = s_state.failure_streaks[n], .accepted_deloads = s_state.accepted_deloads[n], .failure_reviewed = s_state.failure_reviewed[n], .plateau_reviewed = s_state.plateau_reviewed[n] };
       if (plateau_advisory_due(&d)) { s_plateau = true; s_plateau_exercise = n; update_display(); return; }
     }
     uint8_t indices[3];

@@ -38,6 +38,15 @@ int main(void) {
   assert(state.accepted_deloads == 2 && state.failure_streak == 0 && !state.pending);
   state.failure_streak = 3;
   assert(plateau_advisory_due(&state));
+  state.failure_reviewed = true;
+  assert(plateau_advisory_due(&state));
+  state.plateau_reviewed = true;
+  assert(!plateau_advisory_due(&state));
+  state.plateau_reviewed = false;
+  state.failure_streak = 0;
+  assert(!plateau_advisory_due(&state));
+  state.failure_streak = 3;
+  assert(plateau_advisory_due(&state));
   uint8_t order[3];
   assert(deload_workout_order(false, order) == 3 && order[0] == 0 && order[1] == 1 && order[2] == 2);
   assert(deload_workout_order(true, order) == 3 && order[0] == 0 && order[1] == 3 && order[2] == 4);
