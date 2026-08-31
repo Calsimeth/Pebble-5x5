@@ -285,7 +285,16 @@ static void send_oldest(void) {
   if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { sync_adapter_submission_failed(&s_sync_machine); schedule_sync_retry(); return; }
   if (app_message_outbox_send() != APP_MSG_OK) { sync_adapter_submission_failed(&s_sync_machine); schedule_sync_retry(); return; }
   sync_machine_transport(&s_sync_machine, true); s_sync_in_flight = true;
-  if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL);
+  if (!s_sync_ack_timer) {
+    s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL);
+    if (!s_sync_ack_timer) {
+      /* A transport-success callback is not durable delivery.  If the ACK
+       * timer cannot be registered, immediately return the head to retry. */
+      s_sync_in_flight = false;
+      sync_machine_timeout(&s_sync_machine);
+      schedule_sync_retry();
+    }
+  }
 }
 
 static bool valid_advisory_state(void) {
@@ -855,7 +864,7 @@ static void init(void) {
 #endif
   app_message_register_outbox_failed(sync_failed);
   AppMessageResult app_result = app_message_open(128, 128); s_sync_ready = app_result == APP_MSG_OK;
-  if (s_state.pending_valid) { SyncPushResult result = sync_pending_promote(&s_state.outbox, &s_state.pending_record, true); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { s_state.pending_valid = 0; save_state(); } }
+  if (s_state.pending_valid) { SyncPushResult result = sync_completion_promote(&s_state.outbox, &s_state.pending_record, true); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { s_state.pending_valid = 0; save_state(); } }
   if (s_sync_ready) send_oldest();
   s_window = window_create();
   window_set_background_color(s_window, palette_background());

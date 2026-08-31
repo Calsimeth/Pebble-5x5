@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "keywords": ["pebble-app"],
   "private": true,
+  "scripts": {
+    "test:fixtures": "sh tests/verify_fixtures.sh"
+  },
   "dependencies": {},
   "pebble": {
     "displayName": "StrongLifts",
