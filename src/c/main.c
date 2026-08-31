@@ -294,6 +294,9 @@ static void query_send(const char *type) {
   if (type[0]=='c') { dict_write_uint16(it,MESSAGE_KEY_year,s_calendar_year); dict_write_uint8(it,MESSAGE_KEY_month,s_calendar_month); }
   else { dict_write_uint8(it,MESSAGE_KEY_exercise,s_progress_exercise); dict_write_uint8(it,MESSAGE_KEY_page,s_progress_page); }
   s_query_connected=app_message_outbox_send()==APP_MSG_OK;
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  if(s_query_connected && type[0]=='p' && STRONGLIFTS_FIXTURE_ID==1){ProgressPoint fixture_points[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_assembly_reset(&s_progress_data);progress_chunk_add(&s_progress_data,s_query_id,s_progress_exercise,s_progress_page,1,0,1,5,fixture_points);query_controller_response(&s_query_controller,true,true);update_display();return;}
+#endif
   if(s_query_connected){s_query_controller.state=QUERY_WAITING_RESPONSE;s_query_timer=app_timer_register(5000,query_timeout,NULL);if(!s_query_timer)query_cancel();}else query_cancel();
 }
 static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_peek(&s_state.outbox) && !s_sync_in_flight && s_sync_adapter.machine.state==SYNC_IDLE){char q[24];snprintf(q,sizeof q,"%s",s_deferred_query);s_deferred_query[0]=0;query_send(q);} }
