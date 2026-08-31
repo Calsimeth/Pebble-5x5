@@ -310,11 +310,9 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   WorkoutViewModel view = {.set_count=sets, .completed_count=s_state.set_index, .selected_reps=s_selected_reps};
   memcpy(view.completed_reps, s_state.work_reps[s_state.exercise_index], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, WORKOUTS[s_state.active_workout][s_state.exercise_index].name,
-    fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD), GRect(PBL_IF_ROUND_ELSE(14, 6), 10, b.size.w / 2 - PBL_IF_ROUND_ELSE(18, 6), 28), GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  char weight[16], goal[24]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
-  snprintf(goal, sizeof goal, "%dx5 %s", sets, weight);
-  graphics_draw_text(ctx, goal, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(b.size.w / 2, 10, b.size.w / 2 - PBL_IF_ROUND_ELSE(14, 6), 28), GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+  char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
+  snprintf(header, sizeof header, "%s  %dx5 %s", WORKOUTS[s_state.active_workout][s_state.exercise_index].name, sets, weight);
+  graphics_draw_text(ctx, header, fonts_get_system_font(PBL_IF_ROUND_ELSE(FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18_BOLD)), GRect(PBL_IF_ROUND_ELSE(28, 6), 20, b.size.w - PBL_IF_ROUND_ELSE(56, 12), 24), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   if (s_state.rest_active) {
     uint32_t elapsed = rest_elapsed(s_state.rest_start, (int32_t)time(NULL));
     char timer[12]; snprintf(timer, sizeof timer, "%lu:%02lu", (unsigned long)(elapsed / 60), (unsigned long)(elapsed % 60));
@@ -323,7 +321,7 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   time_t clock_time = time(NULL); struct tm *clock_tm = localtime(&clock_time); char clock[8];
   strftime(clock, sizeof clock, "%I:%M", clock_tm);
   graphics_context_set_text_color(ctx, GColorDarkGray);
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 60, b.size.h - 30, 48, 18), GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 60, b.size.h - 38, 48, 18), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circles.x + n * (circles.diameter + circles.gap) + circles.diameter / 2;
     int16_t y = circles.y + circles.diameter / 2;
