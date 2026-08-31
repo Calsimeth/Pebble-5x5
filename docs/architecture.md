@@ -41,7 +41,7 @@ The phone-side component runs inside the official Pebble mobile app. It should b
 - Sending required history or settings back to the watch
 - Deduplicating retried messages
 - Providing configuration capabilities supported by the Pebble environment
-- Attempting import/export only if the environment provides a safe, usable path
+- No import/export in the current release: PebbleKit JS has no documented file picker, file writer, or Android share bridge.
 
 It must not require a separate installation.
 
@@ -114,7 +114,7 @@ AppMessage payloads are size-limited, so large records may require chunking. Pro
 
 ## Import/export boundary
 
-StrongLifts CSV compatibility remains a design target, but the architecture must not depend on it. The core product is complete without file import/export if the PebbleKit JS sandbox cannot expose a usable workflow.
+StrongLifts CSV compatibility remains an unsupported, aspirational capability. Slice 10 found no documented PebbleKit JS or official Pebble Android API for selecting a local file, receiving a content URI, writing a user-accessible file, or opening the Android share sheet. See [the Slice 10 feasibility report](import-export-feasibility.md).
 
 The internal model should nevertheless be rich enough to represent the fields in a StrongLifts export so that a future migration utility can be built without redesigning history storage.
 

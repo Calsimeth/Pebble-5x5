@@ -221,7 +221,7 @@ If import becomes feasible, it should:
 - Require unit confirmation when units are missing or ambiguous.
 - Keep real StrongLifts export fixtures for compatibility tests.
 
-Because there is no separate Android companion app, clean file import/export may be difficult or impossible within the PebbleKit JS sandbox. Import and export are aspirational capabilities and are not core acceptance criteria.
+Because there is no separate Android companion app, Slice 10 found no documented file picker, URI callback, file writer, or share-sheet API. Import and export are unsupported and are not release acceptance criteria. No compatibility is claimed without documented platform support and a representative legally usable fixture. See [the feasibility report](import-export-feasibility.md).
 
 ## 12. Watch interface and visual language
 
