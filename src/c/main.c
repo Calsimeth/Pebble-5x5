@@ -40,6 +40,8 @@ typedef struct {
   uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], plateau_reviewed[5], accepted_deloads[5];
   SyncQueue outbox;
   uint32_t next_record_id;
+  SyncRecord pending_record;
+  uint8_t pending_valid;
 } PersistedState;
 
 typedef struct {
@@ -138,8 +140,10 @@ static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static bool s_sync_ready;
+static bool s_sync_in_flight;
+static AppTimer *s_sync_ack_timer;
 static void send_oldest(void);
-static void retry_sync(void *context) { (void)context; s_sync_ready = true; send_oldest(); }
+static void retry_sync(void *context) { (void)context; s_sync_ack_timer = NULL; s_sync_in_flight = false; s_sync_ready = true; send_oldest(); }
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
@@ -242,23 +246,24 @@ static void save_state(void) {
   persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
 }
 
-static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; app_timer_register(5000, retry_sync, NULL); }
+static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; s_sync_in_flight = false; if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); }
 static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; }
 static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
-  if (r && id->value->uint32 == r->id && sync_queue_ack(&s_state.outbox, r->id)) { save_state(); send_oldest(); update_display(); }
+  if (r && id->value->uint32 == r->id && sync_queue_ack(&s_state.outbox, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; if (s_state.pending_valid && sync_queue_push(&s_state.outbox, &s_state.pending_record)) s_state.pending_valid = 0; save_state(); send_oldest(); update_display(); }
 }
 static void send_oldest(void) {
-  const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready) return;
+  const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
   char wire[128]; int n = snprintf(wire, sizeof wire, "{\"v\":1,\"id\":%lu,\"t\":%ld,\"w\":%u,\"e\":[%u,%u,%u],\"wt\":[%u,%u,%u],\"r\":[", (unsigned long)r->id, (long)r->completed_at, r->workout, r->exercise_ids[0], r->exercise_ids[1], r->exercise_ids[2], r->weights[0], r->weights[1], r->weights[2]);
   for (uint8_t i = 0; i < r->rep_count && n > 0 && n < (int)sizeof wire - 8; i++) n += snprintf(wire+n, sizeof wire-n, "%s%u", i ? "," : "", r->reps[i]);
   if (n <= 0 || n >= (int)sizeof wire - 8) return;
   n += snprintf(wire+n, sizeof wire-n, "],\"c\":%u,\"d\":%u}", r->complete, r->deload_mask);
   if (n <= 0 || n >= (int)sizeof wire) return;
   DictionaryIterator *out; if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
-  dict_write_cstring(out, MESSAGE_KEY_message, wire); app_message_outbox_send();
+  dict_write_cstring(out, MESSAGE_KEY_message, wire); s_sync_in_flight = true; app_message_outbox_send();
+  if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL);
 }
 
 static bool valid_advisory_state(void) {
@@ -627,7 +632,7 @@ static void complete_set(void) {
       record.completed_at = s_state.last_completed; record.complete = 1; record.rep_count = s_state.active_workout == WORKOUT_A ? 15 : 11;
       for (uint8_t e = 0, offset = 0; e < 3; e++) { uint8_t sets = WORKOUTS[s_state.active_workout][e].sets; record.exercise_ids[e] = s_state.active_workout == WORKOUT_A ? e : (e == 0 ? 0 : (e == 1 ? 3 : 4)); record.weights[e] = s_state.active_weights[e]; memcpy(record.reps + offset, s_state.work_reps[e], sets); offset += sets; }
       for (uint8_t e = 0; e < 5; e++) if (s_state.deload_pending[e]) record.deload_mask |= (uint8_t)(1u << e);
-      if (!sync_queue_push(&s_state.outbox, &record)) snprintf(s_feedback, sizeof s_feedback, "Sync Required");
+      if (!sync_queue_push(&s_state.outbox, &record)) { s_state.pending_record = record; s_state.pending_valid = 1; snprintf(s_feedback, sizeof s_feedback, "Sync Required"); }
       else { save_state(); send_oldest(); }
       s_saved = true;
     } else generate_warmup();
@@ -796,15 +801,20 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   load_state();
+  if (!sync_queue_valid(&s_state.outbox)) { s_state.outbox.count = 0; save_state(); }
+  if (s_state.pending_valid && !sync_record_valid(&s_state.pending_record)) { s_state.pending_valid = 0; save_state(); }
   app_message_register_inbox_received(sync_received); app_message_register_outbox_sent(sync_sent);
   /* Legacy readiness hook is intentionally disabled; Pebble has no readiness callback. */
 #if 0
-  app_message_open(128, 128); s_sync_ready = true;
+  AppMessageResult app_result = app_message_open(128, 128); s_sync_ready = app_result == APP_MSG_OK;
+  if (s_sync_ready) send_oldest();
   app_message_register_outbox_failed(sync_failed); app_message_registerด_outbox_sent(sync_sent);
   app_message_open(128, 128); app_message_register_outbox_ready(sync_ready);
 #endif
   app_message_register_outbox_failed(sync_failed);
-  app_message_open(128, 128); s_sync_ready = true;
+  AppMessageResult app_result = app_message_open(128, 128); s_sync_ready = app_result == APP_MSG_OK;
+  if (s_state.pending_valid && sync_queue_push(&s_state.outbox, &s_state.pending_record)) { s_state.pending_valid = 0; save_state(); }
+  if (s_sync_ready) send_oldest();
   s_window = window_create();
   window_set_background_color(s_window, palette_background());
   window_set_click_config_provider(s_window, click_config_provider);

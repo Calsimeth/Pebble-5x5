@@ -23,4 +23,6 @@ bool sync_queue_ack(SyncQueue *, uint32_t id);
 const SyncRecord *sync_queue_peek(const SyncQueue *);
 uint16_t sync_record_serialize(const SyncRecord *, uint8_t *out, uint16_t cap);
 bool sync_record_deserialize(SyncRecord *, const uint8_t *, uint16_t);
+bool sync_record_valid(const SyncRecord *);
+bool sync_queue_valid(const SyncQueue *);
 #endif

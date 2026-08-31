@@ -2,7 +2,7 @@
 
 Pebble StrongLifts is a proposed workout tracker for the current Pebble watch lineup. It is intentionally limited to the standard StrongLifts 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
 
-Slice nine adds the bounded, offline-first history synchronization contract. Completed records use a three-entry watch outbox; the phone stores deduplicated records in versioned localStorage chunks and acknowledges only after storage succeeds. CSV import/export remains out of scope.
+Slice nine adds bounded, offline-first history synchronization. Completed records use a three-entry authoritative watch outbox; if full, one additional completion is retained as a pending record until capacity frees. The phone stores deduplicated records in versioned localStorage chunks and acknowledges only after storage succeeds. CSV import/export remains out of scope.
 
 ## Documentation
 

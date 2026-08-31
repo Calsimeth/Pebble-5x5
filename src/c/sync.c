@@ -19,6 +19,20 @@ bool sync_queue_ack(SyncQueue *q, uint32_t id) {
   return false;
 }
 const SyncRecord *sync_queue_peek(const SyncQueue *q) { return q && q->count ? &q->records[0] : NULL; }
+bool sync_record_valid(const SyncRecord *r) {
+  if (!r || !r->id || r->schema_version != SYNC_RECORD_VERSION || r->workout > 1 || r->complete > 1) return false;
+  uint8_t expected = r->workout ? 11 : 15;
+  if (r->rep_count != expected || r->deload_decisions > 1) return false;
+  const uint8_t ids[2][3] = {{0,1,2},{0,3,4}};
+  for (uint8_t e=0;e<3;e++) if (r->exercise_ids[e] != ids[r->workout][e] || !r->weights[e]) return false;
+  for (uint8_t i=0;i<r->rep_count;i++) if (r->reps[i] > 5) return false;
+  return true;
+}
+bool sync_queue_valid(const SyncQueue *q) {
+  if (!q || q->count > SYNC_QUEUE_CAPACITY) return false;
+  for (uint8_t i=0;i<q->count;i++) { if (!sync_record_valid(&q->records[i])) return false; for (uint8_t j=0;j<i;j++) if (q->records[i].id == q->records[j].id) return false; }
+  return true;
+}
 
 uint16_t sync_record_serialize(const SyncRecord *r, uint8_t *o, uint16_t cap) {
   if (!r || !o || r->rep_count > SYNC_MAX_SETS) return 0;

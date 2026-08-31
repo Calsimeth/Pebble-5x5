@@ -67,7 +67,7 @@ Traditional Pebble persistent storage is constrained, historically around 4 KB p
 
 Completed records not yet acknowledged by the phone must remain queued on the watch. The queue should be bounded and must never silently overwrite an unsynchronized record without a visible warning.
 
-Each message carries a stable record identifier so retries are idempotent. Slice nine uses protocol v1 AppMessage keys `message` (compact JSON record) and `ack` (uint32 record ID). Records contain `v`, `id`, `t`, `w`, `e`, `wt`, `r`, `c`, and `d` fields for schema, ID, timestamp, A/B value, exercise IDs, weight snapshots, repetitions, completion, and deload flags. The watch outbox is capped at three records; a full queue reports `Sync Required` and never overwrites data.
+Each message carries a stable record identifier so retries are idempotent. Slice nine uses protocol v1 AppMessage keys `message` (compact JSON record) and `ack` (uint32 record ID). Records contain `v`, `id`, `t`, `w`, `e`, `wt`, `r`, `c`, and `d` fields for schema, ID, timestamp, A/B value, exercise IDs, weight snapshots, repetitions, completion, and deload flags. The watch outbox is capped at three records; a full queue retains one additional pending completion, reports `Sync Required`, and never overwrites data. Transport delivery does not remove a record: the head remains in flight until its matching ACK, with a five-second bounded retry after failure or lost ACK.
 
 ### Tier 3: phone-side history
 
@@ -99,7 +99,7 @@ Implemented flow:
 5. Only after acknowledgement may the watch remove the record from its outbox.
 6. Repeated delivery of the same identifier must not create duplicates.
 
-The phone stores `schemaVersion`, `historyIndex`, and separate `historyChunk:0001`-style JSON values in PebbleKit JS `localStorage`. It writes a chunk before updating the index, and sends ACK only after both writes succeed. Corrupt indexes do not trigger silent deletion or pruning.
+The phone stores `schemaVersion`, `historyIndex`, and separate `historyChunk:0001`-style JSON values in PebbleKit JS `localStorage`. It scans all chunk keys when the index is malformed or stale, reconciles orphan records by ID, chooses an unused key, and writes the chunk before updating the index. It sends ACK only after both writes succeed. Corrupt indexes or chunks do not trigger silent deletion or pruning. Schema-8 state validates queue count, IDs, workout IDs, exercise IDs, weight snapshots, repetition counts, and duplicate IDs; invalid queued data is discarded as unusable while active workout state is preserved.
 
 AppMessage payloads are size-limited, so large records may require chunking. Protocol messages should contain a schema version and message type.
 
