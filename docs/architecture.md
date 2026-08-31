@@ -67,7 +67,7 @@ Traditional Pebble persistent storage is constrained, historically around 4 KB p
 
 Completed records not yet acknowledged by the phone must remain queued on the watch. The queue should be bounded and must never silently overwrite an unsynchronized record without a visible warning.
 
-Each message carries a stable record identifier so retries are idempotent. Slice nine uses protocol v1 AppMessage keys `message` (compact JSON record) and `ack` (uint32 record ID). Records contain `v`, `id`, `t`, `w`, `e`, `wt`, `r`, `c`, and `d` fields for schema, ID, timestamp, A/B value, exercise IDs, weight snapshots, repetitions, completion, and deload flags. The watch outbox is capped at three records; a full queue retains one additional pending completion, reports `Sync Required`, and never overwrites data. Transport delivery does not remove a record: the head remains in flight until its matching ACK, with a five-second bounded retry after failure or lost ACK.
+Each message carries a stable record identifier so retries are idempotent. Slice nine uses protocol v1 AppMessage keys `message` (compact JSON record) and `ack` (uint32 record ID). Records contain `v`, `id`, `t`, `w`, `e`, `wt`, `r`, `c`, and `d`. The watch outbox has three queued records plus one pending completion; a fifth completion is blocked before final-set reps are written. Transport delivery does not remove a record: the head remains in flight until its matching ACK, with a 5/15/30/60-second bounded retry sequence.
 
 ### Tier 3: phone-side history
 

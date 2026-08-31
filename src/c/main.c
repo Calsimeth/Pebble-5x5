@@ -7,7 +7,7 @@
 
 enum {
   STORAGE_KEY_STATE = 1,
-  STORAGE_SCHEMA_VERSION = 8,
+  STORAGE_SCHEMA_VERSION = 9,
   REST_SECONDS = 180,
 };
 
@@ -42,6 +42,8 @@ typedef struct {
   uint32_t next_record_id;
   SyncRecord pending_record;
   uint8_t pending_valid;
+  uint8_t completion_blocked;
+  uint8_t selected_reps;
 } PersistedState;
 
 typedef struct {
@@ -83,6 +85,15 @@ typedef struct {
   uint8_t gap_reviewed[5];
   uint8_t accepted_deloads[5];
 } PersistedStateV7;
+
+typedef struct {
+  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index, rest_active;
+  int32_t rest_start, rest_end; uint8_t halfway_alerted;
+  Weight weights[5], active_weights[3]; uint8_t work_reps[3][5], failure_streaks[5];
+  PlateCounts inventory_counts; uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
+  int32_t last_completed; uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], plateau_reviewed[5], accepted_deloads[5];
+  SyncQueue outbox; uint32_t next_record_id; SyncRecord pending_record; uint8_t pending_valid;
+} PersistedStateV8;
 
 typedef struct {
   uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
@@ -148,6 +159,17 @@ static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_L
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
 static void save_state(void);
+static bool allocate_record_id(PersistedState *state, uint32_t *out) {
+  if (!state || !out) return false;
+  uint32_t candidate = state->next_record_id;
+  for (uint8_t tries=0; tries<5; tries++) {
+    candidate++; if (!candidate) candidate++;
+    bool used = state->pending_valid && state->pending_record.id == candidate;
+    for (uint8_t i=0; i<state->outbox.count && i<SYNC_QUEUE_CAPACITY; i++) if (state->outbox.records[i].id == candidate) used = true;
+    if (!used) { state->next_record_id = candidate; *out = candidate; return true; }
+  }
+  return false;
+}
 static PlateInventory current_inventory(void) { return plate_inventory_from_counts(s_state.inventory_counts); }
 static void clear_warmup(void) { s_state.warmup_active = 0; s_state.warmup_index = 0; s_state.warmup_plan.count = 0; }
 static void generate_warmup(void) {
@@ -252,7 +274,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
-  if (r && id->value->uint32 == r->id && sync_queue_ack(&s_state.outbox, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; if (s_state.pending_valid && sync_queue_push(&s_state.outbox, &s_state.pending_record)) s_state.pending_valid = 0; save_state(); send_oldest(); update_display(); }
+  if (r && id->value->uint32 == r->id && sync_queue_ack(&s_state.outbox, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; if (s_state.pending_valid && sync_queue_push(&s_state.outbox, &s_state.pending_record)) s_state.pending_valid = 0; if (s_state.completion_blocked && !s_state.pending_valid) s_state.completion_blocked = 0; save_state(); send_oldest(); update_display(); }
 }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
@@ -435,9 +457,17 @@ static void load_state(void) {
       return;
     }
   }
+  if (version == 8) {
+    PersistedStateV8 old;
+    if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old && sync_queue_valid(&old.outbox) && (!old.pending_valid || sync_record_valid(&old.pending_record))) {
+      memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &old, sizeof old); s_state.schema_version = STORAGE_SCHEMA_VERSION;
+      s_state.completion_blocked = 0; s_state.selected_reps = 5; save_state(); return;
+    }
+  }
   if (persist_exists(STORAGE_KEY_STATE) &&
       persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state)) == sizeof(s_state) &&
       s_state.schema_version == STORAGE_SCHEMA_VERSION &&
+      s_state.completion_blocked <= 1 && s_state.selected_reps <= 5 &&
       s_state.next_workout <= WORKOUT_B && s_state.active_workout <= WORKOUT_B &&
       (!s_state.active || (s_state.exercise_index < 3 &&
        s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets)) &&
@@ -459,7 +489,7 @@ static void load_state(void) {
       if (rest_values_valid(time(NULL))) start_rest_services();
       else { clear_rest(); save_state(); }
     }
-    return;
+    s_selected_reps = s_state.selected_reps; return;
   }
   initialize_state();
 }
@@ -585,6 +615,7 @@ static void update_display(void) {
 }
 
 static void complete_set(void) {
+  if (s_state.completion_blocked) { snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
   if (s_state.warmup_active) {
     if (++s_state.warmup_index < s_state.warmup_plan.count) { save_state(); update_display(); return; }
     clear_warmup(); save_state();
@@ -593,12 +624,13 @@ static void complete_set(void) {
     save_state(); start_rest_services(); update_display(); return;
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
+  if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1 && s_state.outbox.count >= SYNC_QUEUE_CAPACITY && s_state.pending_valid) {
+    s_state.completion_blocked = 1; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return;
+  }
   s_state.work_reps[s_state.exercise_index][s_state.set_index] = s_selected_reps;
   save_state();
-  if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1 && s_state.outbox.count >= SYNC_QUEUE_CAPACITY && s_state.pending_valid) {
-    snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return;
-  }
   s_selected_reps = 5;
+  s_state.selected_reps = 5;
   s_state.set_index++;
   bool next_set_same_exercise = s_state.set_index < current->sets;
   if (next_set_same_exercise) {
@@ -627,15 +659,17 @@ static void complete_set(void) {
       s_state.active = 0;
       s_state.last_completed = (int32_t)time(NULL);
       memset(s_state.gap_reviewed, 0, sizeof s_state.gap_reviewed);
-      s_state.next_workout = s_state.active_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A;
       SyncRecord record = {0};
-      record.id = ++s_state.next_record_id; if (!record.id) record.id = ++s_state.next_record_id;
+      if (!allocate_record_id(&s_state, &record.id)) { s_state.completion_blocked = 1; s_state.active = 1; s_state.exercise_index = 2; s_state.set_index = 0; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
       record.schema_version = SYNC_RECORD_VERSION; record.workout = s_state.active_workout;
       record.completed_at = s_state.last_completed; record.complete = 1; record.rep_count = s_state.active_workout == WORKOUT_A ? 15 : 11;
       for (uint8_t e = 0, offset = 0; e < 3; e++) { uint8_t sets = WORKOUTS[s_state.active_workout][e].sets; record.exercise_ids[e] = s_state.active_workout == WORKOUT_A ? e : (e == 0 ? 0 : (e == 1 ? 3 : 4)); record.weights[e] = s_state.active_weights[e]; memcpy(record.reps + offset, s_state.work_reps[e], sets); offset += sets; }
       for (uint8_t e = 0; e < 5; e++) if (s_state.deload_pending[e]) record.deload_mask |= (uint8_t)(1u << e);
-      if (!sync_queue_push(&s_state.outbox, &record)) { s_state.pending_record = record; s_state.pending_valid = 1; snprintf(s_feedback, sizeof s_feedback, "Sync Required"); }
-      else { save_state(); send_oldest(); }
+      SyncPushResult result = sync_queue_push_result(&s_state.outbox, &record);
+      if (result == SYNC_PUSH_FULL) { s_state.pending_record = record; s_state.pending_valid = 1; snprintf(s_feedback, sizeof s_feedback, "Sync Required"); }
+      else if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { save_state(); send_oldest(); }
+      else { s_state.completion_blocked = 1; s_state.active = 1; s_state.exercise_index = 2; s_state.set_index = 0; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
+      s_state.next_workout = s_state.active_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A;
       s_saved = true;
     } else generate_warmup();
   }
@@ -728,7 +762,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
       if (++s_state.warmup_index >= s_state.warmup_plan.count) clear_warmup();
       save_state(); update_display();
     } else if (s_state.active && !s_state.rest_active && !s_show_plates && !s_confirm_abandon) {
-      s_selected_reps = s_selected_reps == 0 ? 5 : s_selected_reps - 1; update_display();
+      s_selected_reps = s_selected_reps == 0 ? 5 : s_selected_reps - 1; s_state.selected_reps = s_selected_reps; save_state(); update_display();
     } else if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
     return;
   }
@@ -750,7 +784,7 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
     if (s_state.rest_active) { clear_rest(); save_state(); }
-    clear_warmup(); save_state(); s_confirm_abandon = true;
+    clear_warmup(); s_state.completion_blocked = 0; s_state.selected_reps = 5; s_selected_reps = 5; save_state(); s_confirm_abandon = true;
     update_display();
   }
 }
@@ -824,7 +858,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { stop_rest_services(); window_destroy(s_window); }
+static void deinit(void) { stop_rest_services(); if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } window_destroy(s_window); }
 
 int main(void) {
   init();
