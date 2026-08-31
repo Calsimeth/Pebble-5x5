@@ -103,6 +103,8 @@ The phone stores `schemaVersion`, `historyIndex`, and separate `historyChunk:000
 
 AppMessage payloads are size-limited, so large records may require chunking. Protocol messages should contain a schema version and message type.
 
+The canonical wire fixtures are generated from the production encoder with `gcc -std=c11 -Wall -Wextra -Werror -Isrc/c tests/gen_sync_fixture.c src/c/sync.c -o /tmp/gen_sync_fixture && /tmp/gen_sync_fixture`; the Node integration test then feeds the committed fixture strings to the captured production AppMessage callback. The watch payload remains within the 128-byte AppMessage allocation for normal records.
+
 ## Data model principles
 
 - Historical facts are immutable by default.
