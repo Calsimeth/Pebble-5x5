@@ -172,18 +172,14 @@ static void generate_warmup(void) {
 
 static const char *SETUP_WEIGHT_NAMES[5] = {"Squat", "Bench", "Row", "OHP", "Deadlift"};
 
-static size_t exercise_weight_index(uint8_t workout, uint8_t exercise) {
-  return exercise == 0 ? 0 : (workout == WORKOUT_A ? exercise : exercise + 1);
-}
-
 static Weight current_weight(uint8_t workout, uint8_t exercise) {
   if (s_state.active && exercise < 3) return s_state.active_weights[exercise];
-  size_t index = exercise_weight_index(workout, exercise);
+  size_t index = workout_weight_index(workout, exercise);
   return weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
 }
 
 static Weight future_weight(uint8_t workout, uint8_t exercise) {
-  size_t index = exercise_weight_index(workout, exercise);
+  size_t index = workout_weight_index(workout, exercise);
   return weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
 }
 
@@ -265,7 +261,14 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
-  if (r && id->value->uint32 == r->id && sync_adapter_ack(&s_sync_adapter, r->id)) { s_sync_in_flight = false; sync_completion_ack_promote(&s_state.outbox, r->id, &s_state.pending_record, &s_state.pending_valid, &s_state.completion_blocked); save_state(); send_oldest(); update_display(); }
+  if (r && id->value->uint32 == r->id && sync_adapter_ack(&s_sync_adapter, r->id)) {
+    uint32_t acknowledged_id = id->value->uint32;
+    SyncPushResult result = workout_completion_handle_ack(&s_state, acknowledged_id);
+    s_sync_in_flight = false;
+    if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) send_oldest();
+    else if (result == SYNC_PUSH_FULL || result == SYNC_PUSH_CONFLICT) s_state.completion_blocked = 1;
+    save_state(); update_display();
+  }
 }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
@@ -397,7 +400,7 @@ static void load_state(void) {
         for (uint8_t set = 0; set < completed && set < 5; set++) s_state.work_reps[e][set] = 5;
       }
       for (uint8_t n = 0; n < 3; n++) {
-        size_t index = exercise_weight_index(s_state.active_workout, n);
+        size_t index = workout_weight_index(s_state.active_workout, n);
         s_state.active_weights[n] = weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
       }
       if (s_state.rest_active && !rest_values_valid(time(NULL))) clear_rest();
@@ -454,7 +457,7 @@ static void load_state(void) {
   }
   if (persist_exists(STORAGE_KEY_STATE) &&
       persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state)) == sizeof(s_state) &&
-      s_state.schema_version == STORAGE_SCHEMA_VERSION &&
+      s_state.schema_version == STORAGE_SCHEMA_VERSION && workout_state_valid(&s_state) &&
       s_state.completion_blocked <= 1 && s_state.selected_reps <= 5 &&
       s_state.next_workout <= WORKOUT_B && s_state.active_workout <= WORKOUT_B &&
       (!s_state.active || (s_state.exercise_index < 3 &&
@@ -671,7 +674,7 @@ static void complete_set(void) {
     memcpy(plateau_reviewed_before, s_state.plateau_reviewed, sizeof plateau_reviewed_before);
     memcpy(gap_reviewed_before, s_state.gap_reviewed, sizeof gap_reviewed_before);
     bool success = exercise_succeeded(s_state.work_reps[s_state.exercise_index], current->sets);
-    size_t weight_index = exercise_weight_index(s_state.active_workout, s_state.exercise_index);
+    size_t weight_index = workout_weight_index(s_state.active_workout, s_state.exercise_index);
     Weight old_weight = s_state.active_weights[s_state.exercise_index];
     PlateInventory inventory = current_inventory();
     s_state.weights[weight_index] = success ? successful_target(old_weight, &inventory) : failed_target(old_weight);

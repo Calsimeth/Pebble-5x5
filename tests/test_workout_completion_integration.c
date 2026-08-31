@@ -7,10 +7,10 @@ static SyncRecord record(uint32_t id) {
   memset(r.reps,5,15); return r;
 }
 static void restart_round_trip(const PersistedState *state, PersistedState *reloaded) {
-  uint8_t wire[WORKOUT_STATE_WIRE_SIZE];
-  int length = workout_state_encode(state, wire, sizeof wire);
-  assert(length == (int)sizeof wire);
-  assert(workout_state_decode(reloaded, wire, (uint16_t)length));
+  uint8_t raw[sizeof *state];
+  memcpy(raw,state,sizeof raw);
+  memcpy(reloaded,raw,sizeof *reloaded);
+  assert(workout_state_valid(reloaded));
 }
 static PersistedState initial_state(void) {
   PersistedState s={0}; s.schema_version=WORKOUT_STORAGE_SCHEMA; s.active=1; s.active_workout=WORKOUT_A; s.exercise_index=2; s.set_index=4; s.selected_reps=3;
@@ -20,6 +20,8 @@ static PersistedState initial_state(void) {
   return s;
 }
 int main(void) {
+  assert(workout_weight_index(WORKOUT_A,0)==0&&workout_weight_index(WORKOUT_A,1)==1&&workout_weight_index(WORKOUT_A,2)==2);
+  assert(workout_weight_index(WORKOUT_B,0)==0&&workout_weight_index(WORKOUT_B,1)==3&&workout_weight_index(WORKOUT_B,2)==4);
   PersistedState s=initial_state(), before=s, reloaded={0};
   assert(workout_completion_attempt(&s,3,100)==COMPLETION_BLOCKED);
   assert(s.completion_blocked&&s.selected_reps==3&&s.work_reps[2][4]==before.work_reps[2][4]);
