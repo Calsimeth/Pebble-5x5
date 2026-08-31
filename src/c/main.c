@@ -667,10 +667,9 @@ static void complete_set(void) {
       memset(s_state.gap_reviewed, 0, sizeof s_state.gap_reviewed);
       SyncRecord record = {0};
       if (!allocate_record_id(&s_state, &record.id)) { s_state.completion_blocked = 1; s_state.active = 1; s_state.exercise_index = 2; s_state.set_index = 0; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
-      record.schema_version = SYNC_RECORD_VERSION; record.workout = s_state.active_workout;
-      record.completed_at = s_state.last_completed; record.complete = 1; record.rep_count = s_state.active_workout == WORKOUT_A ? 15 : 11;
-      for (uint8_t e = 0, offset = 0; e < 3; e++) { uint8_t sets = WORKOUTS[s_state.active_workout][e].sets; record.exercise_ids[e] = s_state.active_workout == WORKOUT_A ? e : (e == 0 ? 0 : (e == 1 ? 3 : 4)); record.weights[e] = s_state.active_weights[e]; memcpy(record.reps + offset, s_state.work_reps[e], sets); offset += sets; }
-      for (uint8_t e = 0; e < 5; e++) if (s_state.deload_pending[e]) record.deload_mask |= (uint8_t)(1u << e);
+      uint8_t sets[3]; for (uint8_t e=0;e<3;e++) sets[e]=WORKOUTS[s_state.active_workout][e].sets;
+      uint8_t deload_mask=0; for (uint8_t e=0;e<5;e++) if (s_state.deload_pending[e]) deload_mask |= (uint8_t)(1u << e);
+      if (!sync_completion_build_record(&record, record.id, s_state.active_workout, s_state.last_completed, s_state.active_weights, s_state.work_reps, sets, deload_mask)) { s_state.active=1; s_state.exercise_index=2; s_state.set_index=0; s_state.completion_blocked=1; save_state(); snprintf(s_feedback,sizeof s_feedback,"Sync Required"); update_display(); return; }
       SyncPushResult result = sync_queue_push_result(&s_state.outbox, &record);
       if (result == SYNC_PUSH_FULL) { s_state.pending_record = record; s_state.pending_valid = 1; snprintf(s_feedback, sizeof s_feedback, "Sync Required"); }
       else if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { save_state(); send_oldest(); }
