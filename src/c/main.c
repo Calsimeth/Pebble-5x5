@@ -621,7 +621,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
     return;
   }
   if (s_setup_item < 5) {
-    { PlateInventory inventory = current_inventory(); s_state.weights[s_setup_item] = previous_achievable_total(s_state.weights[s_setup_item], &inventory); }
+    { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_setup_item]; Weight next = previous_achievable_total(old, &inventory); s_state.weights[s_setup_item] = next; s_state.failure_streaks[s_setup_item] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_setup_item], old, next); }
   } else if (s_state.inventory_counts[s_setup_item - 5] > 0) {
     s_state.inventory_counts[s_setup_item - 5]--;
   }

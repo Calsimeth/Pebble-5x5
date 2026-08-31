@@ -12,5 +12,6 @@ bool exercise_succeeded(const uint8_t *repetitions, uint8_t set_count);
 Weight successful_target(Weight current, const PlateInventory *inventory);
 Weight failed_target(Weight current);
 uint8_t failure_streak_after(bool success, uint8_t previous);
+uint8_t failure_streak_after_manual_weight_change(uint8_t previous, Weight old_weight, Weight new_weight);
 
 #endif

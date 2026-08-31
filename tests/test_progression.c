@@ -16,5 +16,9 @@ int main(void) {
   assert(failed_target(WEIGHT_LB(95)) == WEIGHT_LB(95));
   assert(failure_streak_after(false, 0) == 1 && failure_streak_after(true, 9) == 0);
   assert(failure_streak_after(false, 255) == 255);
+  assert(failure_streak_after_manual_weight_change(3, WEIGHT_LB(45), WEIGHT_LB(50)) == 0);
+  assert(failure_streak_after_manual_weight_change(3, WEIGHT_LB(50), WEIGHT_LB(45)) == 0);
+  assert(failure_streak_after_manual_weight_change(3, WEIGHT_LB(45), WEIGHT_LB(45)) == 3);
+  assert(failure_streak_after_manual_weight_change(7, WEIGHT_LB(45), WEIGHT_LB(45)) == 7);
   return 0;
 }

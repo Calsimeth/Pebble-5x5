@@ -23,3 +23,7 @@ uint8_t failure_streak_after(bool success, uint8_t previous) {
   if (success) return 0;
   return previous == UINT8_MAX ? UINT8_MAX : (uint8_t)(previous + 1);
 }
+
+uint8_t failure_streak_after_manual_weight_change(uint8_t previous, Weight old_weight, Weight new_weight) {
+  return old_weight == new_weight ? previous : 0;
+}
