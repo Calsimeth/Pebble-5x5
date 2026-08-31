@@ -319,6 +319,9 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     char timer[12]; snprintf(timer, sizeof timer, "%lu:%02lu", (unsigned long)(elapsed / 60), (unsigned long)(elapsed % 60));
     graphics_draw_text(ctx, timer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0, 38, b.size.w, 36), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
+  time_t clock_time = time(NULL); struct tm *clock_tm = localtime(&clock_time); char clock[8];
+  strftime(clock, sizeof clock, "%H:%M", clock_tm);
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 48, b.size.h - 18, 48, 18), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circles.x + n * (circles.diameter + circles.gap) + circles.diameter / 2;
     int16_t y = circles.y + circles.diameter / 2;

@@ -25,6 +25,6 @@ WorkoutCircleLayout workout_circle_layout(uint16_t width, uint16_t height, uint8
   layout.diameter = diameter;
   layout.gap = set_count == 1 ? 0 : (available - diameter * set_count) / (set_count - 1);
   layout.x = (width - (diameter * set_count + layout.gap * (set_count - 1))) / 2;
-  layout.y = height > 110 ? 78 : height / 2;
+  layout.y = ((int16_t)height - diameter) / 2;
   return layout;
 }
