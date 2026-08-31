@@ -6,6 +6,7 @@
 #include "sync.h"
 #include "sync_state.h"
 #include "sync_adapter.h"
+#include "sync_completion.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
@@ -611,9 +612,9 @@ static void update_display(void) {
              current->name, s_state.set_index + 1, current->sets, weight, s_state.selected_reps);
     snprintf(s_hint_text, sizeof(s_hint_text), s_confirm_abandon ? "Select: abandon" : "Up: plates");
   }
-  if (s_state.completion_blocked) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
-  else if (s_state.outbox.count >= SYNC_QUEUE_CAPACITY) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
-  else if (s_state.outbox.count > 0) snprintf(s_hint_text, sizeof s_hint_text, "Not Synced");
+  WorkoutSyncStatus sync_status = sync_completion_status(s_state.outbox.count, s_state.completion_blocked);
+  if (sync_status == WORKOUT_SYNC_REQUIRED) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
+  else if (sync_status == WORKOUT_SYNC_NOT_SYNCED) snprintf(s_hint_text, sizeof s_hint_text, "Not Synced");
   text_layer_set_text(s_exercise_layer, s_exercise_text);
   text_layer_set_text(s_hint_layer, s_hint_text);
 }
@@ -628,7 +629,8 @@ static void complete_set(void) {
     save_state(); start_rest_services(); update_display(); return;
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
-  if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1 && s_state.outbox.count >= SYNC_QUEUE_CAPACITY && s_state.pending_valid) {
+  if (sync_completion_capacity_blocked(s_state.outbox.count, s_state.pending_valid,
+      s_state.exercise_index, s_state.set_index, 2, current->sets - 1)) {
     s_state.completion_blocked = 1; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return;
   }
   s_state.work_reps[s_state.exercise_index][s_state.set_index] = s_selected_reps;
