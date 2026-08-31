@@ -151,6 +151,8 @@ static CalendarResponse s_calendar;
 static ProgressAssembly s_progress_data;
 static QueryController s_query_controller;
 static bool s_calendar_valid;
+static char s_deferred_query[24];
+static AppTimer *s_query_timer;
 #define MESSAGE_KEY_type 10006
 #define MESSAGE_KEY_id 10007
 #define MESSAGE_KEY_year 10008
@@ -231,6 +233,7 @@ static GColor palette_primary_text(void) { return GColorWhite; }
 static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorWhite); }
 
 static void update_display(void);
+static void query_timeout(void *ctx);
 static void history_progress_draw(Layer *layer, GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_stroke_color(ctx,palette_primary_text());
   if(s_screen==SCREEN_HISTORY && s_calendar_valid) {
@@ -247,13 +250,17 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
 static void back_click(ClickRecognizerRef recognizer, void *context);
 static void query_send(const char *type) {
   DictionaryIterator *it;
+  if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); return; }
+  if (!query_controller_begin(&s_query_controller,(uint16_t)(s_query_id+1))) return;
   if (!s_sync_ready || app_message_outbox_begin(&it) != APP_MSG_OK) { s_query_connected=false; return; }
   if (++s_query_id == 0) s_query_id=1;
   dict_write_cstring(it,MESSAGE_KEY_type,type); dict_write_uint16(it,MESSAGE_KEY_id,s_query_id);
   if (type[0]=='c') { dict_write_uint16(it,MESSAGE_KEY_year,s_calendar_year); dict_write_uint8(it,MESSAGE_KEY_month,s_calendar_month); }
   else { dict_write_uint8(it,MESSAGE_KEY_exercise,s_progress_exercise); dict_write_uint8(it,MESSAGE_KEY_page,s_progress_page); }
   s_query_connected=app_message_outbox_send()==APP_MSG_OK;
+  if(s_query_connected){s_query_controller.state=QUERY_WAITING_RESPONSE;s_query_timer=app_timer_register(5000,query_timeout,NULL);}else{query_controller_fail(&s_query_controller);send_oldest();}
 }
+static void query_timeout(void *ctx){(void)ctx;s_query_timer=NULL;query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest();update_display();}
 
 static void workout_layer_update(Layer *layer, GContext *ctx) {
   if (!s_state.active || s_state.warmup_active || s_screen != SCREEN_WORKOUT) return;
@@ -385,7 +392,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
 }
 static void query_received(DictionaryIterator *i) {
   Tuple *c=dict_find(i,MESSAGE_KEY_calendar_id), *p=dict_find(i,MESSAGE_KEY_progress_id);
-  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_calendar_valid=true;s_query_connected=true;update_display();} return; }
+  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_calendar_valid=true;s_query_connected=true;query_controller_response(&s_query_controller,true,true);if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}send_oldest();update_display();} return; }
   if (p) { Tuple *ex=dict_find(i,MESSAGE_KEY_progress_exercise),*pg=dict_find(i,MESSAGE_KEY_progress_page),*tt=dict_find(i,MESSAGE_KEY_progress_total),*ix=dict_find(i,MESSAGE_KEY_progress_chunk_index),*cc=dict_find(i,MESSAGE_KEY_progress_chunk_count),*pc=dict_find(i,MESSAGE_KEY_progress_point_count); ProgressPoint pts[5];uint8_t n=pc?pc->value->uint8:0;for(uint8_t z=0;z<n&&z<5;z++){Tuple *t=dict_find(i,MESSAGE_KEY_progress_t0+z),*w=dict_find(i,MESSAGE_KEY_progress_w0+z);if(!t||!w){n=6;break;}pts[z]=(ProgressPoint){t->value->int32,w->value->uint16};}if(ex&&pg&&tt&&ix&&cc&&n<=5&&progress_chunk_add(&s_progress_data,p->value->uint16,ex->value->uint8,pg->value->uint8,tt->value->uint8,ix->value->uint8,cc->value->uint8,n,pts)){if(progress_assembly_complete(&s_progress_data)){s_query_connected=true;update_display();}} }
 }
 static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }
@@ -616,6 +623,11 @@ static void load_state(void) {
 }
 
 static void update_display(void) {
+  bool dedicated = s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS_GRAPH;
+  if (s_title_layer) layer_set_hidden(text_layer_get_layer(s_title_layer), dedicated);
+  if (s_exercise_layer) layer_set_hidden(text_layer_get_layer(s_exercise_layer), dedicated);
+  if (s_hint_layer) layer_set_hidden(text_layer_get_layer(s_hint_layer), dedicated);
+  if (s_history_progress_layer) layer_set_hidden(s_history_progress_layer, !dedicated);
   set_workout_layer_visible(s_state.active && !s_state.warmup_active && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
@@ -640,7 +652,11 @@ static void update_display(void) {
     text_layer_set_text(s_hint_layer, "Up/Down: choose");
     return;
   }
-  if (s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_PROGRESS_GRAPH) {
+  if (s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS_GRAPH) {
+    if (s_history_progress_layer) layer_mark_dirty(s_history_progress_layer);
+    return;
+  }
+  if (s_screen == SCREEN_PROGRESS_PICKER) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
     text_layer_set_text(s_title_layer, s_screen == SCREEN_HISTORY ? "History" : (s_screen == SCREEN_PROGRESS_PICKER ? "Progress Picker" : "Progress Graph"));
     if (s_screen == SCREEN_PROGRESS_PICKER) { snprintf(s_exercise_text,sizeof s_exercise_text,"%s",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
