@@ -1,10 +1,11 @@
 #include <pebble.h>
 #include "plates.h"
 #include "warmups.h"
+#include "progression.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
-  STORAGE_SCHEMA_VERSION = 5,
+  STORAGE_SCHEMA_VERSION = 6,
   REST_SECONDS = 180,
 };
 
@@ -27,10 +28,20 @@ typedef struct {
   int32_t rest_end;
   uint8_t halfway_alerted;
   Weight weights[5];
+  Weight active_weights[3];
+  uint8_t work_reps[3][5];
+  uint8_t failure_streaks[5];
   PlateCounts inventory_counts;
   uint8_t warmup_active, warmup_index;
   WarmupPlan warmup_plan;
 } PersistedState;
+
+typedef struct {
+  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
+  uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
+  Weight weights[5]; PlateCounts inventory_counts;
+  uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
+} PersistedStateV5;
 
 typedef struct {
   uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
@@ -75,6 +86,8 @@ static bool s_confirm_abandon;
 static bool s_show_plates;
 static bool s_setup;
 static bool s_weights_adjusted;
+static uint8_t s_selected_reps = 5;
+static char s_feedback[24];
 static uint8_t s_setup_item;
 static char s_exercise_text[64];
 static char s_hint_text[32];
@@ -99,6 +112,12 @@ static size_t exercise_weight_index(uint8_t workout, uint8_t exercise) {
 }
 
 static Weight current_weight(uint8_t workout, uint8_t exercise) {
+  if (s_state.active && exercise < 3) return s_state.active_weights[exercise];
+  size_t index = exercise_weight_index(workout, exercise);
+  return weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
+}
+
+static Weight future_weight(uint8_t workout, uint8_t exercise) {
   size_t index = exercise_weight_index(workout, exercise);
   return weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
 }
@@ -252,6 +271,34 @@ static void load_state(void) {
       return;
     }
   }
+  if (version == 5) {
+    PersistedStateV5 old;
+    if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
+        old.next_workout <= WORKOUT_B && old.active_workout <= WORKOUT_B && old.active <= 1) {
+      memset(&s_state, 0, sizeof s_state);
+      s_state.next_workout = old.next_workout; s_state.active = old.active;
+      s_state.active_workout = old.active_workout; s_state.exercise_index = old.exercise_index;
+      s_state.set_index = old.set_index; s_state.rest_active = old.rest_active;
+      s_state.rest_start = old.rest_start; s_state.rest_end = old.rest_end;
+      s_state.halfway_alerted = old.halfway_alerted; memcpy(s_state.weights, old.weights, sizeof old.weights);
+      memcpy(s_state.inventory_counts, old.inventory_counts, sizeof old.inventory_counts);
+      s_state.warmup_active = old.warmup_active; s_state.warmup_index = old.warmup_index;
+      s_state.warmup_plan = old.warmup_plan;
+      for (uint8_t e = 0; e < 3; e++) {
+        uint8_t completed = e < s_state.exercise_index ? WORKOUTS[s_state.active_workout][e].sets :
+          (e == s_state.exercise_index ? s_state.set_index : 0);
+        for (uint8_t set = 0; set < completed && set < 5; set++) s_state.work_reps[e][set] = 5;
+      }
+      for (uint8_t n = 0; n < 3; n++) {
+        size_t index = exercise_weight_index(s_state.active_workout, n);
+        s_state.active_weights[n] = weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
+      }
+      if (s_state.rest_active && !rest_values_valid(time(NULL))) clear_rest();
+      save_state();
+      if (s_state.rest_active) start_rest_services();
+      return;
+    }
+  }
   if (persist_exists(STORAGE_KEY_STATE) &&
       persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state)) == sizeof(s_state) &&
       s_state.schema_version == STORAGE_SCHEMA_VERSION &&
@@ -262,6 +309,10 @@ static void load_state(void) {
       (!s_state.rest_active || (s_state.active &&
        s_state.exercise_index < 3 && s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets))) {
     for (size_t n = 0; n < 5; n++) if (!weight_valid(s_state.weights[n])) s_state.weights[n] = DEFAULT_WEIGHTS[n];
+    for (size_t e = 0; e < 3; e++) for (size_t n = 0; n < 5; n++)
+      if (!repetition_valid(s_state.work_reps[e][n])) s_state.work_reps[e][n] = 0;
+    if (s_state.active) for (size_t e = 0; e < 3; e++)
+      if (!weight_valid(s_state.active_weights[e])) s_state.active_weights[e] = future_weight(s_state.active_workout, e);
     for (size_t n = 0; n < PLATE_MAX_SIZES; n++) if (s_state.inventory_counts[n] > 2) s_state.inventory_counts[n] = DEFAULT_COUNTS[n];
     { PlateInventory inventory = current_inventory();
       if (s_state.warmup_active && (!warmup_plan_valid(&s_state.warmup_plan,
@@ -297,6 +348,7 @@ static void update_display(void) {
   WorkoutType workout = s_state.active ? s_state.active_workout : s_state.next_workout;
 
   if (s_saved) {
+    s_feedback[0] = 0;
     text_layer_set_text(s_title_layer, "Workout Saved");
     text_layer_set_text(s_exercise_layer, workout_name(s_state.next_workout));
     text_layer_set_text(s_hint_layer, "Select: start");
@@ -304,6 +356,7 @@ static void update_display(void) {
   }
 
   if (s_state.rest_active) {
+    s_feedback[0] = 0;
     int32_t remaining = s_state.rest_end - (int32_t)time(NULL);
     if (remaining < 0) remaining = 0;
     snprintf(s_exercise_text, sizeof(s_exercise_text), "Rest\n%ld:%02ld\n%s\nSet %d of %d",
@@ -321,8 +374,22 @@ static void update_display(void) {
     snprintf(s_exercise_text, sizeof s_exercise_text, "%s\nWarmup\nWarm %d of %d\n%ld lb\n5 reps",
              WORKOUTS[workout][s_state.exercise_index].name, s_state.warmup_index + 1,
              s_state.warmup_plan.count, (long)(set.weight / 4));
-    text_layer_set_text(s_title_layer, "Warmup"); text_layer_set_text(s_exercise_layer, s_exercise_text);
+    text_layer_set_text(s_title_layer, s_feedback[0] ? s_feedback : "Warmup"); s_feedback[0] = 0;
+    text_layer_set_text(s_exercise_layer, s_exercise_text);
     text_layer_set_text(s_hint_layer, "Sel: done Dn: skip"); return;
+  }
+
+  if (s_state.active && !s_state.warmup_active && !s_show_plates) {
+    const ExerciseDefinition *current = &WORKOUTS[workout][s_state.exercise_index];
+    char weight[16]; weight_format(current_weight(workout, s_state.exercise_index), weight, sizeof weight);
+    snprintf(s_exercise_text, sizeof(s_exercise_text), "%s\nSet %d of %d\n%s\nReps: %d",
+             current->name, s_state.set_index + 1, current->sets, weight, s_selected_reps);
+    text_layer_set_text(s_title_layer, s_feedback[0] ? s_feedback : workout_name(workout));
+    s_feedback[0] = 0;
+    snprintf(s_hint_text, sizeof(s_hint_text), "Up:plates Dn:reps");
+    text_layer_set_text(s_exercise_layer, s_exercise_text);
+    text_layer_set_text(s_hint_layer, s_hint_text);
+    return;
   }
 
   if (s_show_plates && s_state.active) {
@@ -369,6 +436,9 @@ static void complete_set(void) {
     save_state(); start_rest_services(); update_display(); return;
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
+  s_state.work_reps[s_state.exercise_index][s_state.set_index] = s_selected_reps;
+  save_state();
+  s_selected_reps = 5;
   s_state.set_index++;
   bool next_set_same_exercise = s_state.set_index < current->sets;
   if (next_set_same_exercise) {
@@ -383,6 +453,13 @@ static void complete_set(void) {
     return;
   }
   if (s_state.set_index >= current->sets) {
+    bool success = exercise_succeeded(s_state.work_reps[s_state.exercise_index], current->sets);
+    size_t weight_index = exercise_weight_index(s_state.active_workout, s_state.exercise_index);
+    Weight old_weight = s_state.active_weights[s_state.exercise_index];
+    PlateInventory inventory = current_inventory();
+    s_state.weights[weight_index] = success ? successful_target(old_weight, &inventory) : failed_target(old_weight);
+    s_state.failure_streaks[weight_index] = failure_streak_after(success, s_state.failure_streaks[weight_index]);
+    snprintf(s_feedback, sizeof s_feedback, success ? "Weight increased" : "Repeat weight");
     s_state.set_index = 0;
     s_state.exercise_index++;
     if (s_state.exercise_index >= 3) {
@@ -419,10 +496,14 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     save_state();
     update_display();
   } else if (!s_state.active) {
-    s_state.active = 1;
     s_state.active_workout = s_state.next_workout;
     s_state.exercise_index = 0;
     s_state.set_index = 0;
+    for (uint8_t n = 0; n < 3; n++) {
+      s_state.active_weights[n] = current_weight(s_state.next_workout, n);
+      memset(s_state.work_reps[n], 0, sizeof s_state.work_reps[n]);
+    }
+    s_state.active = 1;
     generate_warmup();
     save_state();
     update_display();
@@ -433,7 +514,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
 
 static void up_click(ClickRecognizerRef recognizer, void *context) {
   if (s_setup) {
-    if (s_setup_item < 5) { PlateInventory inventory = current_inventory(); s_state.weights[s_setup_item] = next_achievable_total(s_state.weights[s_setup_item], &inventory); }
+    if (s_setup_item < 5) { PlateInventory inventory = current_inventory(); s_state.weights[s_setup_item] = next_achievable_total(s_state.weights[s_setup_item], &inventory); s_state.failure_streaks[s_setup_item] = 0; }
     else if (s_state.inventory_counts[s_setup_item - 5] < 2) {
       s_state.inventory_counts[s_setup_item - 5]++;
     }
@@ -447,6 +528,8 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
     if (s_state.active && s_state.warmup_active && !s_state.rest_active) {
       if (++s_state.warmup_index >= s_state.warmup_plan.count) clear_warmup();
       save_state(); update_display();
+    } else if (s_state.active && !s_state.rest_active && !s_show_plates && !s_confirm_abandon) {
+      s_selected_reps = s_selected_reps == 0 ? 5 : s_selected_reps - 1; update_display();
     } else if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
     return;
   }
@@ -456,7 +539,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
     s_state.inventory_counts[s_setup_item - 5]--;
   }
   { PlateInventory inventory = current_inventory(); bool changed = false;
-    for (size_t n = 0; n < 5; n++) { Weight old = s_state.weights[n]; s_state.weights[n] = normalize_weight_down(old, &inventory); changed |= old != s_state.weights[n]; }
+    for (size_t n = 0; n < 5; n++) { Weight old = s_state.weights[n]; s_state.weights[n] = normalize_weight_down(old, &inventory); if (old != s_state.weights[n]) { changed = true; s_state.failure_streaks[n] = 0; } }
     save_state();
     s_weights_adjusted = changed;
   }

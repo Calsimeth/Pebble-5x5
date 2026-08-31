@@ -97,6 +97,8 @@ pebble install --emulator gabbro
 
 Workers must report the build and emulator result for each target. They should not commit `/build/`, `.lock-waf_linux_build`, SDK files, emulator state, or other generated output. If an emulator command hangs, stop only that command and retry the affected platform; a transient WebSocket disconnect does not imply a source or build failure.
 
-The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed.
+Slice seven adds five-repetition work-set entry (including valid zero-rep failures), persisted active-workout weight snapshots and per-set results, independent exercise progression, and consecutive-failure streaks. Successful exercises advance to the first achievable target at least 5 lb heavier; failed exercises repeat their weight. Warm-ups remain separate from progression. Schema version 6 migrates active version-5 workouts, preserving completed work sets and repairing expired rests.
 
-The remaining product work is described in [the development discussion guide](docs/development-guide.md). Automatic progression, failure handling, deloading, long-term history synchronization, and CSV import/export remain future work; weights, plates, timers, and warm-up recommendations are implemented.
+The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed; no emulator validation has been run for slice seven yet.
+
+The remaining product work is described in [the development discussion guide](docs/development-guide.md). Deloading, long-term history synchronization, and CSV import/export remain future work.
