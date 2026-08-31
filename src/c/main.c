@@ -157,12 +157,32 @@ static bool s_sync_ready;
 static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
 static SyncMachine s_sync_machine;
+static SyncAdapter s_sync_adapter;
+static DictionaryIterator *s_sync_iterator;
+static char s_sync_wire[128];
 static void send_oldest(void);
-static void retry_sync(void *context) { (void)context; s_sync_ack_timer = NULL; sync_machine_timeout(&s_sync_machine); sync_machine_retry_elapsed(&s_sync_machine); s_sync_in_flight = false; s_sync_ready = true; send_oldest(); }
-static void schedule_sync_retry(void) {
-  if (s_sync_ack_timer || s_sync_machine.state != SYNC_WAITING_RETRY) return;
-  AppTimer *timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL);
-  if (timer) s_sync_ack_timer = timer;
+static void retry_sync(void *context);
+static bool sync_begin_adapter(void *context) { (void)context; return app_message_outbox_begin(&s_sync_iterator) == APP_MSG_OK; }
+static bool sync_write_adapter(void *context) { (void)context; return dict_write_cstring(s_sync_iterator, MESSAGE_KEY_message, s_sync_wire) == DICT_OK; }
+static bool sync_send_adapter(void *context) { (void)context; return app_message_outbox_send() == APP_MSG_OK; }
+static bool sync_timer_adapter(uint32_t seconds, void *context) {
+  (void)context;
+  if (s_sync_ack_timer) return true;
+  s_sync_ack_timer = app_timer_register(seconds * 1000, retry_sync, NULL);
+  return s_sync_ack_timer != NULL;
+}
+static void sync_cancel_adapter(void *context) { (void)context; if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } }
+static void retry_sync(void *context) {
+  (void)context;
+  s_sync_ack_timer = NULL;
+  if (s_sync_adapter.machine.state == SYNC_WAITING_ACK) {
+    s_sync_in_flight = false;
+    sync_adapter_timeout(&s_sync_adapter);
+  } else {
+    sync_adapter_retry_elapsed(&s_sync_adapter);
+    s_sync_in_flight = false;
+    send_oldest();
+  }
 }
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
@@ -269,32 +289,19 @@ static void save_state(void) {
   persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
 }
 
-static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; s_sync_in_flight = false; sync_machine_transport(&s_sync_machine, false); schedule_sync_retry(); }
+static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; s_sync_in_flight = false; sync_adapter_transport(&s_sync_adapter, false); }
 static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; }
 static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
-  if (r && id->value->uint32 == r->id && sync_machine_ack(&s_sync_machine, r->id)) { if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } s_sync_in_flight = false; sync_completion_ack_promote(&s_state.outbox, r->id, &s_state.pending_record, &s_state.pending_valid, &s_state.completion_blocked); save_state(); send_oldest(); update_display(); }
+  if (r && id->value->uint32 == r->id && sync_adapter_ack(&s_sync_adapter, r->id)) { s_sync_in_flight = false; sync_completion_ack_promote(&s_state.outbox, r->id, &s_state.pending_record, &s_state.pending_valid, &s_state.completion_blocked); save_state(); send_oldest(); update_display(); }
 }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
-  s_sync_machine.head_id = r->id;
-  char wire[128]; int n = sync_record_to_json(r, wire, sizeof wire); if (n <= 0) return;
-  DictionaryIterator *out; if (!sync_machine_begin(&s_sync_machine, app_message_outbox_begin(&out) == APP_MSG_OK)) { schedule_sync_retry(); return; }
-  if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { sync_adapter_submission_failed(&s_sync_machine); schedule_sync_retry(); return; }
-  if (app_message_outbox_send() != APP_MSG_OK) { sync_adapter_submission_failed(&s_sync_machine); schedule_sync_retry(); return; }
-  sync_machine_transport(&s_sync_machine, true); s_sync_in_flight = true;
-  if (!s_sync_ack_timer) {
-    s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL);
-    if (!s_sync_ack_timer) {
-      /* A transport-success callback is not durable delivery.  If the ACK
-       * timer cannot be registered, immediately return the head to retry. */
-      s_sync_in_flight = false;
-      sync_machine_timeout(&s_sync_machine);
-      schedule_sync_retry();
-    }
-  }
+  int n = sync_record_to_json(r, s_sync_wire, sizeof s_sync_wire); if (n <= 0) return;
+  s_sync_adapter.machine.head_id = r->id;
+  s_sync_in_flight = sync_adapter_start(&s_sync_adapter);
 }
 
 static bool valid_advisory_state(void) {
@@ -852,6 +859,9 @@ static void window_unload(Window *window) {
 static void init(void) {
   load_state();
   sync_machine_init(&s_sync_machine, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0);
+  sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
+      sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,
+      sync_cancel_adapter, NULL);
   if (!sync_queue_valid(&s_state.outbox)) { s_state.outbox.count = 0; save_state(); }
   if (s_state.pending_valid && !sync_record_valid(&s_state.pending_record)) { s_state.pending_valid = 0; save_state(); }
   app_message_register_inbox_received(sync_received); app_message_register_outbox_sent(sync_sent);
@@ -873,7 +883,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { stop_rest_services(); if (s_sync_ack_timer) { app_timer_cancel(s_sync_ack_timer); s_sync_ack_timer = NULL; } window_destroy(s_window); }
+static void deinit(void) { stop_rest_services(); sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();
