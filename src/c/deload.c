@@ -45,7 +45,7 @@ void deload_review_failure(DeloadState *state) {
 }
 
 bool plateau_advisory_due(const DeloadState *state) {
-  return state && state->accepted_deloads >= DELOAD_PLATEAU_THRESHOLD &&
+  return state && !state->plateau_reviewed && state->accepted_deloads >= DELOAD_PLATEAU_THRESHOLD &&
          state->failure_streak >= DELOAD_FAILURE_THRESHOLD;
 }
 

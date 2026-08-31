@@ -37,7 +37,7 @@ typedef struct {
   uint8_t warmup_active, warmup_index;
   WarmupPlan warmup_plan;
   int32_t last_completed;
-  uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], accepted_deloads[5];
+  uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], plateau_reviewed[5], accepted_deloads[5];
   SyncQueue outbox;
   uint32_t next_record_id;
 } PersistedState;
@@ -58,11 +58,28 @@ typedef struct {
 
 /* Exact schema 7 layout: this intentionally stops before schema-8 sync fields. */
 typedef struct {
-  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
-  uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
-  Weight weights[5], active_weights[3]; uint8_t work_reps[3][5], failure_streaks[5];
-  PlateCounts inventory_counts; uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
-  int32_t last_completed; uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], accepted_deloads[5];
+  uint8_t schema_version;
+  uint8_t next_workout;
+  uint8_t active;
+  uint8_t active_workout;
+  uint8_t exercise_index;
+  uint8_t set_index;
+  uint8_t rest_active;
+  int32_t rest_start;
+  int32_t rest_end;
+  uint8_t halfway_alerted;
+  Weight weights[5];
+  Weight active_weights[3];
+  uint8_t work_reps[3][5];
+  uint8_t failure_streaks[5];
+  PlateCounts inventory_counts;
+  uint8_t warmup_active;
+  uint8_t warmup_index;
+  WarmupPlan warmup_plan;
+  int32_t last_completed;
+  uint8_t deload_pending[5];
+  uint8_t gap_reviewed[5];
+  uint8_t accepted_deloads[5];
 } PersistedStateV7;
 
 typedef struct {
@@ -247,7 +264,7 @@ static void send_oldest(void) {
 static bool valid_advisory_state(void) {
   if (s_state.last_completed < 0) return false;
   for (size_t n = 0; n < 5; n++)
-    if (s_state.deload_pending[n] > 1 || s_state.gap_reviewed[n] > 1 || s_state.failure_reviewed[n] > 1) return false;
+    if (s_state.deload_pending[n] > 1 || s_state.gap_reviewed[n] > 1 || s_state.failure_reviewed[n] > 1 || s_state.plateau_reviewed[n] > 1) return false;
   return true;
 }
 
@@ -391,7 +408,23 @@ static void load_state(void) {
   if (version == 7) {
     PersistedStateV7 old;
     if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old && old.next_workout <= WORKOUT_B && old.active_workout <= WORKOUT_B && old.active <= 1) {
-      memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &old, sizeof old);
+      memset(&s_state, 0, sizeof s_state);
+      s_state.schema_version = STORAGE_SCHEMA_VERSION;
+      s_state.next_workout = old.next_workout; s_state.active = old.active;
+      s_state.active_workout = old.active_workout; s_state.exercise_index = old.exercise_index;
+      s_state.set_index = old.set_index; s_state.rest_active = old.rest_active;
+      s_state.rest_start = old.rest_start; s_state.rest_end = old.rest_end;
+      s_state.halfway_alerted = old.halfway_alerted;
+      memcpy(s_state.weights, old.weights, sizeof old.weights);
+      memcpy(s_state.active_weights, old.active_weights, sizeof old.active_weights);
+      memcpy(s_state.work_reps, old.work_reps, sizeof old.work_reps);
+      memcpy(s_state.failure_streaks, old.failure_streaks, sizeof old.failure_streaks);
+      memcpy(s_state.inventory_counts, old.inventory_counts, sizeof old.inventory_counts);
+      s_state.warmup_active = old.warmup_active; s_state.warmup_index = old.warmup_index;
+      s_state.warmup_plan = old.warmup_plan; s_state.last_completed = old.last_completed;
+      memcpy(s_state.deload_pending, old.deload_pending, sizeof old.deload_pending);
+      memcpy(s_state.gap_reviewed, old.gap_reviewed, sizeof old.gap_reviewed);
+      memcpy(s_state.accepted_deloads, old.accepted_deloads, sizeof old.accepted_deloads);
       s_state.next_record_id = 0; s_state.outbox.count = 0; save_state();
       if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       else if (s_state.rest_active) { clear_rest(); save_state(); }
@@ -579,7 +612,7 @@ static void complete_set(void) {
     PlateInventory inventory = current_inventory();
     s_state.weights[weight_index] = success ? successful_target(old_weight, &inventory) : failed_target(old_weight);
     s_state.failure_streaks[weight_index] = failure_streak_after(success, s_state.failure_streaks[weight_index]);
-    if (!success && deload_after_failure(s_state.failure_streaks[weight_index])) { s_state.deload_pending[weight_index] = 1; s_state.failure_reviewed[weight_index] = 0; }
+    if (!success && deload_after_failure(s_state.failure_streaks[weight_index])) { s_state.deload_pending[weight_index] = 1; s_state.failure_reviewed[weight_index] = 0; s_state.plateau_reviewed[weight_index] = 0; }
     snprintf(s_feedback, sizeof s_feedback, success ? "Weight increased" : "Repeat weight");
     s_state.set_index = 0;
     s_state.exercise_index++;
@@ -604,7 +637,7 @@ static void complete_set(void) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
-  if (s_plateau) { s_state.failure_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
+  if (s_plateau) { s_state.plateau_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
   if (s_deload) {
     s_state.weights[s_setup_item] = s_deload_weight;
     s_state.deload_pending[s_setup_item] = 0;
@@ -637,7 +670,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     update_display();
   } else if (!s_state.active) {
     for (uint8_t n = 0; n < 5; n++) {
-      DeloadState d = { .failure_streak = s_state.failure_streaks[n], .accepted_deloads = s_state.accepted_deloads[n] };
+      DeloadState d = { .failure_streak = s_state.failure_streaks[n], .accepted_deloads = s_state.accepted_deloads[n], .failure_reviewed = s_state.plateau_reviewed[n] };
       if (plateau_advisory_due(&d)) { s_plateau = true; s_plateau_exercise = n; update_display(); return; }
     }
     uint8_t indices[3];

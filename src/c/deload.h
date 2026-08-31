@@ -19,6 +19,7 @@ typedef struct {
   bool pending;
   bool gap_reviewed;
   bool failure_reviewed;
+  bool plateau_reviewed;
 } DeloadState;
 
 bool deload_after_failure(uint8_t failure_streak);
