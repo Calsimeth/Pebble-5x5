@@ -17,7 +17,7 @@
     "enableMultiJS": true,
     "targetPlatforms": ["flint", "emery", "gabbro"],
     "watchapp": { "watchface": false },
-    "messageKeys": ["message", "ack", "sync_type", "sync_id", "sync_data", "sync_status", "type", "id", "year", "month", "exercise", "page", "calendar_id", "calendar_year", "calendar_month", "calendar_days", "calendar_mask", "progress_id", "progress_exercise", "progress_page", "progress_total", "progress_chunk_index", "progress_chunk_count", "progress_t0", "progress_t1", "progress_t2", "progress_t3", "progress_t4", "progress_w0", "progress_w1", "progress_w2", "progress_w3", "progress_w4"],
+    "messageKeys": ["message", "ack", "sync_type", "sync_id", "sync_data", "sync_status", "type", "id", "year", "month", "exercise", "page", "calendar_id", "calendar_year", "calendar_month", "calendar_days", "calendar_mask", "progress_id", "progress_exercise", "progress_page", "progress_total", "progress_chunk_index", "progress_chunk_count", "progress_point_count", "progress_t0", "progress_t1", "progress_t2", "progress_t3", "progress_t4", "progress_w0", "progress_w1", "progress_w2", "progress_w3", "progress_w4"],
     "resources": { "media": [] }
   }
 }

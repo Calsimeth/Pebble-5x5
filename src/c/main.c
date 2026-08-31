@@ -9,6 +9,7 @@
 #include "sync_completion.h"
 #include "workout_completion.h"
 #include "history_progress.h"
+#include "query_controller.h"
 #include "workout_view.h"
 #include "rest_state.h"
 #include "migration.h"
@@ -148,6 +149,7 @@ static uint8_t s_progress_exercise, s_progress_page;
 static bool s_query_connected;
 static CalendarResponse s_calendar;
 static ProgressAssembly s_progress_data;
+static QueryController s_query_controller;
 static bool s_calendar_valid;
 #define MESSAGE_KEY_type 10006
 #define MESSAGE_KEY_id 10007
@@ -1097,6 +1099,7 @@ static void window_unload(Window *window) {
 }
 
 static void init(void) {
+  query_controller_init(&s_query_controller);
   load_state();
   sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
       sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,

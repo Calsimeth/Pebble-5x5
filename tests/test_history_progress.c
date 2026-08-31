@@ -1,0 +1,3 @@
+#include <assert.h>
+#include "../src/c/history_progress.h"
+int main(void){CalendarResponse c={1,2024,2,29,0};assert(calendar_response_valid(&c,1,2024,2));c.days=28;assert(!calendar_response_valid(&c,1,2024,2));c.days=29;c.mask=1u<<29;assert(!calendar_response_valid(&c,1,2024,2));ProgressAssembly a;progress_assembly_reset(&a);assert(progress_chunk_add(&a,2,0,0,0,0,1,0,0));assert(progress_assembly_complete(&a)&&a.total_points==0);progress_assembly_reset(&a);ProgressPoint p[2]={{1,100},{2,90}};assert(progress_chunk_add(&a,3,0,0,1,0,1,2,p));assert(progress_assembly_complete(&a)&&a.total_points==2);assert(!progress_chunk_add(&a,3,0,0,1,0,1,2,(ProgressPoint[]){{1,101},{2,90}}));assert(graph_coordinate(100,90,100,20)==0&&graph_coordinate(90,90,100,20)==19);return 0;}
