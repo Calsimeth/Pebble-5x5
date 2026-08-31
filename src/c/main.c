@@ -669,6 +669,14 @@ static void complete_set(void) {
      * complete rollback image while constructing and queueing the record so
      * allocation, encoding, or collision failures cannot partially commit
      * progression or advisory state. */
+    SyncCompletionRollback rollback;
+    sync_completion_snapshot(&rollback, s_state.weights, s_state.failure_streaks,
+      s_state.deload_pending, s_state.failure_reviewed, s_state.plateau_reviewed,
+      s_state.gap_reviewed, s_state.active, s_state.exercise_index, s_state.set_index,
+      s_state.next_workout, s_state.last_completed, s_state.pending_valid,
+      &s_state.pending_record);
+    /* Keep the local aliases while the failure branches are collapsed into
+     * the shared restore helper in a subsequent cleanup. */
     Weight weights_before[5]; uint8_t streaks_before[5], pending_before[5];
     uint8_t failure_reviewed_before[5], plateau_reviewed_before[5], gap_reviewed_before[5];
     uint8_t active_before = s_state.active, exercise_before = s_state.exercise_index;

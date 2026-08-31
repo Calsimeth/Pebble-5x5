@@ -3,6 +3,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "sync.h"
+typedef struct {
+  int32_t weights[5];
+  uint8_t failure_streaks[5], deload_pending[5], failure_reviewed[5];
+  uint8_t plateau_reviewed[5], gap_reviewed[5];
+  uint8_t active, exercise_index, set_index, next_workout;
+  int32_t last_completed;
+  uint8_t pending_valid;
+  SyncRecord pending_record;
+} SyncCompletionRollback;
 typedef enum { WORKOUT_SYNC_CLEAR, WORKOUT_SYNC_NOT_SYNCED, WORKOUT_SYNC_REQUIRED } WorkoutSyncStatus;
 bool sync_completion_capacity_blocked(uint8_t queue_count, bool pending_valid, uint8_t exercise_index, uint8_t set_index, uint8_t final_exercise, uint8_t final_set);
 bool sync_completion_log_set(uint8_t *destination, uint8_t *selected_reps, uint8_t *blocked, uint8_t queue_count, bool pending_valid, uint8_t exercise_index, uint8_t set_index, uint8_t final_exercise, uint8_t final_set);
@@ -10,4 +19,6 @@ WorkoutSyncStatus sync_completion_status(uint8_t queue_count, bool completion_bl
 SyncPushResult sync_completion_promote(SyncQueue *, SyncRecord *, bool pending_valid);
 SyncPushResult sync_completion_ack_promote(SyncQueue *, uint32_t acknowledged_id, SyncRecord *, uint8_t *pending_valid, uint8_t *completion_blocked);
 bool sync_completion_build_record(SyncRecord *, uint32_t id, uint8_t workout, int32_t timestamp, const uint16_t weights[3], const uint8_t reps[3][5], const uint8_t sets[3], uint8_t deload_mask);
+void sync_completion_snapshot(SyncCompletionRollback *, const int32_t weights[5], const uint8_t failure_streaks[5], const uint8_t deload_pending[5], const uint8_t failure_reviewed[5], const uint8_t plateau_reviewed[5], const uint8_t gap_reviewed[5], uint8_t active, uint8_t exercise_index, uint8_t set_index, uint8_t next_workout, int32_t last_completed, uint8_t pending_valid, const SyncRecord *pending_record);
+void sync_completion_restore(const SyncCompletionRollback *, int32_t weights[5], uint8_t failure_streaks[5], uint8_t deload_pending[5], uint8_t failure_reviewed[5], uint8_t plateau_reviewed[5], uint8_t gap_reviewed[5], uint8_t *active, uint8_t *exercise_index, uint8_t *set_index, uint8_t *next_workout, int32_t *last_completed, uint8_t *pending_valid, SyncRecord *pending_record);
 #endif
