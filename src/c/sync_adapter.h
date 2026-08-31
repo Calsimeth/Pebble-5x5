@@ -17,6 +17,7 @@ typedef struct {
 } SyncAdapter;
 
 void sync_adapter_init(SyncAdapter *, uint32_t head_id, SyncAdapterOp, SyncAdapterOp, SyncAdapterOp, SyncAdapterTimerOp, SyncAdapterCancelOp, void *);
+void sync_adapter_submission_failed(SyncMachine *);
 bool sync_adapter_start(SyncAdapter *);
 bool sync_adapter_transport(SyncAdapter *, bool delivered);
 bool sync_adapter_ack(SyncAdapter *, uint32_t id);

@@ -4,6 +4,7 @@ static void enter_retry(SyncAdapter *a) {
   sync_machine_transport(&a->machine, false);
   sync_adapter_schedule_retry(a);
 }
+void sync_adapter_submission_failed(SyncMachine *m) { if (m) sync_machine_transport(m, false); }
 void sync_adapter_init(SyncAdapter *a, uint32_t id, SyncAdapterOp begin, SyncAdapterOp write, SyncAdapterOp send, SyncAdapterTimerOp timer, SyncAdapterCancelOp cancel, void *context) {
   *a=(SyncAdapter){0}; sync_machine_init(&a->machine,id); a->begin=begin; a->write=write; a->send=send; a->timer=timer; a->cancel=cancel; a->context=context;
 }
