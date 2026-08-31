@@ -18,6 +18,9 @@ typedef struct {
 } PersistedState;
 
 typedef enum { COMPLETION_OK, COMPLETION_BLOCKED, COMPLETION_ERROR } CompletionResult;
+#define WORKOUT_STATE_WIRE_SIZE (sizeof(PersistedState) + 2u)
 CompletionResult workout_completion_attempt(PersistedState *, uint8_t selected_reps, int32_t completion_time);
 SyncPushResult workout_completion_handle_ack(PersistedState *, uint32_t acknowledged_id);
+int workout_state_encode(const PersistedState *, uint8_t *buffer, uint16_t capacity);
+bool workout_state_decode(PersistedState *, const uint8_t *buffer, uint16_t length);
 #endif

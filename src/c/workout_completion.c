@@ -31,3 +31,13 @@ SyncPushResult workout_completion_handle_ack(PersistedState *s, uint32_t acknowl
   if (!s) return SYNC_PUSH_CONFLICT;
   return sync_completion_ack_promote(&s->outbox,acknowledged_id,&s->pending_record,&s->pending_valid,&s->completion_blocked);
 }
+int workout_state_encode(const PersistedState *s, uint8_t *buffer, uint16_t capacity) {
+  if (!s || !buffer || capacity < WORKOUT_STATE_WIRE_SIZE || s->schema_version != WORKOUT_STORAGE_SCHEMA || !sync_queue_valid(&s->outbox) || (s->pending_valid && !sync_record_valid(&s->pending_record))) return 0;
+  buffer[0] = WORKOUT_STORAGE_SCHEMA; buffer[1] = 1; memcpy(buffer + 2, s, sizeof *s); return (int)WORKOUT_STATE_WIRE_SIZE;
+}
+bool workout_state_decode(PersistedState *s, const uint8_t *buffer, uint16_t length) {
+  if (!s || !buffer || length != WORKOUT_STATE_WIRE_SIZE || buffer[0] != WORKOUT_STORAGE_SCHEMA || buffer[1] != 1) return false;
+  PersistedState candidate; memcpy(&candidate, buffer + 2, sizeof candidate);
+  if (candidate.schema_version != WORKOUT_STORAGE_SCHEMA || !sync_queue_valid(&candidate.outbox) || (candidate.pending_valid && !sync_record_valid(&candidate.pending_record)) || candidate.selected_reps > 5 || candidate.completion_blocked > 1) return false;
+  *s = candidate; return true;
+}

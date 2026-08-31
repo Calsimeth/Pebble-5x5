@@ -7,12 +7,10 @@ static SyncRecord record(uint32_t id) {
   memset(r.reps,5,15); return r;
 }
 static void restart_round_trip(const PersistedState *state, PersistedState *reloaded) {
-  /* This is the production schema boundary's fixed-size representation: the
-   * validator is run after the copy, rather than testing a bare assignment. */
-  memcpy(reloaded,state,sizeof *reloaded);
-  assert(reloaded->schema_version==WORKOUT_STORAGE_SCHEMA);
-  assert(sync_queue_valid(&reloaded->outbox));
-  if (reloaded->pending_valid) assert(sync_record_valid(&reloaded->pending_record));
+  uint8_t wire[WORKOUT_STATE_WIRE_SIZE];
+  int length = workout_state_encode(state, wire, sizeof wire);
+  assert(length == (int)sizeof wire);
+  assert(workout_state_decode(reloaded, wire, (uint16_t)length));
 }
 static PersistedState initial_state(void) {
   PersistedState s={0}; s.schema_version=WORKOUT_STORAGE_SCHEMA; s.active=1; s.active_workout=WORKOUT_A; s.exercise_index=2; s.set_index=4; s.selected_reps=3;
