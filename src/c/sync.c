@@ -1,15 +1,30 @@
 #include "sync.h"
 #include <string.h>
+#include <stdio.h>
 
 static void put16(uint8_t *p, uint16_t v) { p[0]=v; p[1]=v>>8; }
 static uint16_t get16(const uint8_t *p) { return p[0] | ((uint16_t)p[1]<<8); }
 static void put32(uint8_t *p, uint32_t v) { for (int i=0;i<4;i++) p[i]=(uint8_t)(v>>(8*i)); }
 static uint32_t get32(const uint8_t *p) { uint32_t v=0; for (int i=3;i>=0;i--) v=(v<<8)|p[i]; return v; }
 
-bool sync_queue_push(SyncQueue *q, const SyncRecord *r) {
-  if (!q || !r || q->count >= SYNC_QUEUE_CAPACITY || r->id == 0) return false;
-  for (uint8_t i=0;i<q->count;i++) if (q->records[i].id == r->id) return true;
-  q->records[q->count++] = *r; return true;
+bool sync_record_equal(const SyncRecord *a, const SyncRecord *b) {
+  if (!a || !b || a->id != b->id || a->schema_version != b->schema_version || a->workout != b->workout || a->completed_at != b->completed_at || a->complete != b->complete || a->rep_count != b->rep_count || a->deload_mask != b->deload_mask || a->deload_decisions != b->deload_decisions) return false;
+  return !memcmp(a->exercise_ids,b->exercise_ids,3) && !memcmp(a->weights,b->weights,sizeof a->weights) && !memcmp(a->reps,b->reps,a->rep_count);
+}
+SyncPushResult sync_queue_push_result(SyncQueue *q, const SyncRecord *r) {
+  if (!q || !r || r->id == 0) return SYNC_PUSH_CONFLICT;
+  for (uint8_t i=0;i<q->count && i<SYNC_QUEUE_CAPACITY;i++) if (q->records[i].id == r->id) return sync_record_equal(&q->records[i],r) ? SYNC_PUSH_IDENTICAL : SYNC_PUSH_CONFLICT;
+  if (q->count >= SYNC_QUEUE_CAPACITY) return SYNC_PUSH_FULL;
+  q->records[q->count++] = *r; return SYNC_PUSH_ADDED;
+}
+bool sync_queue_push(SyncQueue *q, const SyncRecord *r) { return sync_queue_push_result(q,r) == SYNC_PUSH_ADDED; }
+uint32_t sync_highest_retained_id(const SyncQueue *q, const SyncRecord *p, bool pv) { uint32_t h=0; if(q) for(uint8_t i=0;i<q->count && i<SYNC_QUEUE_CAPACITY;i++) if(q->records[i].id>h) h=q->records[i].id; if(pv && p && p->id>h) h=p->id; return h; }
+int sync_record_to_json(const SyncRecord *r, char *o, size_t cap) {
+  if (!sync_record_valid(r) || !o || !cap) return 0;
+  int n=snprintf(o,cap,"{\"v\":%u,\"id\":%lu,\"t\":%ld,\"w\":%u,\"e\":[%u,%u,%u],\"wt\":[%u,%u,%u],\"r\":[",r->schema_version,(unsigned long)r->id,(long)r->completed_at,r->workout,r->exercise_ids[0],r->exercise_ids[1],r->exercise_ids[2],r->weights[0],r->weights[1],r->weights[2]);
+  if (n < 0 || (size_t)n >= cap) return 0;
+  for (uint8_t i=0; i<r->rep_count; i++) { int x=snprintf(o+n,cap-n,"%s%u",i?",":"",r->reps[i]); if (x<0 || (size_t)(n+x)>=cap) return 0; n+=x; }
+  int x=snprintf(o+n,cap-n,"],\"c\":%u,\"d\":%u}",r->complete,r->deload_mask); return x<0||(size_t)(n+x)>=cap?0:n+x;
 }
 bool sync_queue_ack(SyncQueue *q, uint32_t id) {
   if (!q || id == 0) return false;

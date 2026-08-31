@@ -256,11 +256,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
 }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
-  char wire[128]; int n = snprintf(wire, sizeof wire, "{\"v\":1,\"id\":%lu,\"t\":%ld,\"w\":%u,\"e\":[%u,%u,%u],\"wt\":[%u,%u,%u],\"r\":[", (unsigned long)r->id, (long)r->completed_at, r->workout, r->exercise_ids[0], r->exercise_ids[1], r->exercise_ids[2], r->weights[0], r->weights[1], r->weights[2]);
-  for (uint8_t i = 0; i < r->rep_count && n > 0 && n < (int)sizeof wire - 8; i++) n += snprintf(wire+n, sizeof wire-n, "%s%u", i ? "," : "", r->reps[i]);
-  if (n <= 0 || n >= (int)sizeof wire - 8) return;
-  n += snprintf(wire+n, sizeof wire-n, "],\"c\":%u,\"d\":%u}", r->complete, r->deload_mask);
-  if (n <= 0 || n >= (int)sizeof wire) return;
+  char wire[128]; int n = sync_record_to_json(r, wire, sizeof wire); if (n <= 0) return;
   DictionaryIterator *out; if (app_message_outbox_begin(&out) != APP_MSG_OK) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); return; }
   if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); return; }
   if (app_message_outbox_send() != APP_MSG_OK) { if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(5000, retry_sync, NULL); return; }
