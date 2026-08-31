@@ -5,6 +5,7 @@
 #include "deload.h"
 #include "sync.h"
 #include "sync_state.h"
+#include "sync_adapter.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
@@ -280,8 +281,8 @@ static void send_oldest(void) {
   s_sync_machine.head_id = r->id;
   char wire[128]; int n = sync_record_to_json(r, wire, sizeof wire); if (n <= 0) return;
   DictionaryIterator *out; if (!sync_machine_begin(&s_sync_machine, app_message_outbox_begin(&out) == APP_MSG_OK)) { schedule_sync_retry(); return; }
-  if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { sync_machine_transport(&s_sync_machine, false); schedule_sync_retry(); return; }
-  if (app_message_outbox_send() != APP_MSG_OK) { sync_machine_transport(&s_sync_machine, false); schedule_sync_retry(); return; }
+  if (dict_write_cstring(out, MESSAGE_KEY_message, wire) != DICT_OK) { sync_adapter_submission_failed(&s_sync_machine); schedule_sync_retry(); return; }
+  if (app_message_outbox_send() != APP_MSG_OK) { sync_adapter_submission_failed(&s_sync_machine); schedule_sync_retry(); return; }
   sync_machine_transport(&s_sync_machine, true); s_sync_in_flight = true;
   if (!s_sync_ack_timer) s_sync_ack_timer = app_timer_register(sync_machine_retry_delay(&s_sync_machine) * 1000, retry_sync, NULL);
 }
