@@ -644,6 +644,13 @@ static void complete_set(void) {
     save_state(); start_rest_services(); update_display(); return;
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
+  SyncCompletionRollback rollback;
+  if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1)
+    sync_completion_snapshot(&rollback, s_state.weights, s_state.failure_streaks,
+      s_state.deload_pending, s_state.failure_reviewed, s_state.plateau_reviewed,
+      s_state.gap_reviewed, s_state.active, s_state.exercise_index, s_state.set_index,
+      s_state.next_workout, s_state.last_completed, s_state.pending_valid,
+      &s_state.pending_record);
   if (!sync_completion_log_set(s_state.work_reps[s_state.exercise_index] + s_state.set_index,
       &s_selected_reps, &s_state.completion_blocked, s_state.outbox.count, s_state.pending_valid,
       s_state.exercise_index, s_state.set_index, 2, current->sets - 1)) {
@@ -669,12 +676,6 @@ static void complete_set(void) {
      * complete rollback image while constructing and queueing the record so
      * allocation, encoding, or collision failures cannot partially commit
      * progression or advisory state. */
-    SyncCompletionRollback rollback;
-    sync_completion_snapshot(&rollback, s_state.weights, s_state.failure_streaks,
-      s_state.deload_pending, s_state.failure_reviewed, s_state.plateau_reviewed,
-      s_state.gap_reviewed, s_state.active, s_state.exercise_index, s_state.set_index,
-      s_state.next_workout, s_state.last_completed, s_state.pending_valid,
-      &s_state.pending_record);
     /* Keep the local aliases while the failure branches are collapsed into
      * the shared restore helper in a subsequent cleanup. */
     Weight weights_before[5]; uint8_t streaks_before[5], pending_before[5];
