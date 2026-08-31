@@ -325,9 +325,10 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     graphics_draw_text(ctx, timer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0, 38, b.size.w, 36), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
   time_t clock_time = time(NULL); struct tm *clock_tm = localtime(&clock_time); char clock[8];
-  strftime(clock, sizeof clock, "%I:%M", clock_tm);
-  graphics_context_set_text_color(ctx, GColorDarkGray);
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 60, b.size.h - 38, 48, 18), GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  int clock_hour = clock_tm ? clock_tm->tm_hour % 12 : 0; if (!clock_hour) clock_hour = 12;
+  snprintf(clock, sizeof clock, "%d:%02d", clock_hour, clock_tm ? clock_tm->tm_min : 0);
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 64, b.size.h - 42, 56, 20), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circle_x + n * (circle_diameter + circle_gap) + circle_diameter / 2;
     int16_t y = circles.y + circle_diameter / 2;
