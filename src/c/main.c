@@ -8,7 +8,6 @@
 enum {
   STORAGE_KEY_STATE = 1,
   STORAGE_SCHEMA_VERSION = 8,
-  STORAGE_KEY_OUTBOX = 2,
   REST_SECONDS = 180,
 };
 
@@ -56,6 +55,15 @@ typedef struct {
   Weight weights[5], active_weights[3]; uint8_t work_reps[3][5], failure_streaks[5];
   PlateCounts inventory_counts; uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
 } PersistedStateV6;
+
+/* Exact schema 7 layout: this intentionally stops before schema-8 sync fields. */
+typedef struct {
+  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
+  uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
+  Weight weights[5], active_weights[3]; uint8_t work_reps[3][5], failure_streaks[5];
+  PlateCounts inventory_counts; uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
+  int32_t last_completed; uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], accepted_deloads[5];
+} PersistedStateV7;
 
 typedef struct {
   uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
@@ -113,6 +121,8 @@ static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static bool s_sync_ready;
+static void send_oldest(void);
+static void retry_sync(void *context) { (void)context; s_sync_ready = true; send_oldest(); }
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
@@ -215,20 +225,23 @@ static void save_state(void) {
   persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
 }
 
-static void send_oldest(void);
-static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; }
-static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; send_oldest(); }
+static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; app_timer_register(5000, retry_sync, NULL); }
+static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; }
 static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
-  if (r && id->value->uint32 == r->id && sync_queue_ack(&s_state.outbox, r->id)) { persist_write_data(STORAGE_KEY_OUTBOX, &s_state.outbox, sizeof s_state.outbox); send_oldest(); update_display(); }
+  if (r && id->value->uint32 == r->id && sync_queue_ack(&s_state.outbox, r->id)) { save_state(); send_oldest(); update_display(); }
 }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready) return;
-  uint8_t raw[64]; uint16_t n = sync_record_serialize(r, raw, sizeof raw); if (!n) return;
+  char wire[128]; int n = snprintf(wire, sizeof wire, "{\"v\":1,\"id\":%lu,\"t\":%ld,\"w\":%u,\"e\":[%u,%u,%u],\"wt\":[%u,%u,%u],\"r\":[", (unsigned long)r->id, (long)r->completed_at, r->workout, r->exercise_ids[0], r->exercise_ids[1], r->exercise_ids[2], r->weights[0], r->weights[1], r->weights[2]);
+  for (uint8_t i = 0; i < r->rep_count && n > 0 && n < (int)sizeof wire - 8; i++) n += snprintf(wire+n, sizeof wire-n, "%s%u", i ? "," : "", r->reps[i]);
+  if (n <= 0 || n >= (int)sizeof wire - 8) return;
+  n += snprintf(wire+n, sizeof wire-n, "],\"c\":%u,\"d\":%u}", r->complete, r->deload_mask);
+  if (n <= 0 || n >= (int)sizeof wire) return;
   DictionaryIterator *out; if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
-  dict_write_uint32(out, MESSAGE_KEY_ack, r->id); dict_write_data(out, MESSAGE_KEY_message, raw, n); app_message_outbox_send();
+  dict_write_cstring(out, MESSAGE_KEY_message, wire); app_message_outbox_send();
 }
 
 static bool valid_advisory_state(void) {
@@ -370,6 +383,16 @@ static void load_state(void) {
       memcpy(&s_state, &old, sizeof old);
       s_state.last_completed = 0;
       save_state();
+      if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
+      else if (s_state.rest_active) { clear_rest(); save_state(); }
+      return;
+    }
+  }
+  if (version == 7) {
+    PersistedStateV7 old;
+    if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old && old.next_workout <= WORKOUT_B && old.active_workout <= WORKOUT_B && old.active <= 1) {
+      memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &old, sizeof old);
+      s_state.next_record_id = 0; s_state.outbox.count = 0; save_state();
       if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       else if (s_state.rest_active) { clear_rest(); save_state(); }
       return;
@@ -518,6 +541,8 @@ static void update_display(void) {
              current->name, s_state.set_index + 1, current->sets, weight);
     snprintf(s_hint_text, sizeof(s_hint_text), s_confirm_abandon ? "Select: abandon" : "Up: plates");
   }
+  if (s_state.outbox.count >= SYNC_QUEUE_CAPACITY) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
+  else if (s_state.outbox.count > 0) snprintf(s_hint_text, sizeof s_hint_text, "Not Synced");
   text_layer_set_text(s_exercise_layer, s_exercise_text);
   text_layer_set_text(s_hint_layer, s_hint_text);
 }
@@ -566,11 +591,11 @@ static void complete_set(void) {
       SyncRecord record = {0};
       record.id = ++s_state.next_record_id; if (!record.id) record.id = ++s_state.next_record_id;
       record.schema_version = SYNC_RECORD_VERSION; record.workout = s_state.active_workout;
-      record.completed_at = s_state.last_completed; record.complete = 1; record.rep_count = 15;
-      for (uint8_t e = 0; e < 3; e++) { record.exercise_ids[e] = e; record.weights[e] = s_state.active_weights[e]; memcpy(record.reps + e * 5, s_state.work_reps[e], 5); }
+      record.completed_at = s_state.last_completed; record.complete = 1; record.rep_count = s_state.active_workout == WORKOUT_A ? 15 : 11;
+      for (uint8_t e = 0, offset = 0; e < 3; e++) { uint8_t sets = WORKOUTS[s_state.active_workout][e].sets; record.exercise_ids[e] = s_state.active_workout == WORKOUT_A ? e : (e == 0 ? 0 : (e == 1 ? 3 : 4)); record.weights[e] = s_state.active_weights[e]; memcpy(record.reps + offset, s_state.work_reps[e], sets); offset += sets; }
       for (uint8_t e = 0; e < 5; e++) if (s_state.deload_pending[e]) record.deload_mask |= (uint8_t)(1u << e);
       if (!sync_queue_push(&s_state.outbox, &record)) snprintf(s_feedback, sizeof s_feedback, "Sync Required");
-      else { persist_write_data(STORAGE_KEY_OUTBOX, &s_state.outbox, sizeof s_state.outbox); send_oldest(); }
+      else { save_state(); send_oldest(); }
       s_saved = true;
     } else generate_warmup();
   }
@@ -738,7 +763,6 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   load_state();
-  if (persist_exists(STORAGE_KEY_OUTBOX)) persist_read_data(STORAGE_KEY_OUTBOX, &s_state.outbox, sizeof s_state.outbox);
   app_message_register_inbox_received(sync_received); app_message_register_outbox_sent(sync_sent);
   /* Legacy readiness hook is intentionally disabled; Pebble has no readiness callback. */
 #if 0

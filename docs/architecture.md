@@ -67,7 +67,7 @@ Traditional Pebble persistent storage is constrained, historically around 4 KB p
 
 Completed records not yet acknowledged by the phone must remain queued on the watch. The queue should be bounded and must never silently overwrite an unsynchronized record without a visible warning.
 
-Each message carries a stable record identifier so retries are idempotent. Slice nine uses protocol v1 AppMessage keys `sync_type`, `sync_id`, `sync_data`, and `sync_status`: type 1 is a record, type 2 is an ACK, and type 3 is a NACK. Records contain schema version, timestamp, A/B value, three exercise IDs, three weight snapshots, work-set repetitions, completion, and compact deload flags. The watch outbox is capped at three records; a full queue reports `Sync required` and never overwrites data.
+Each message carries a stable record identifier so retries are idempotent. Slice nine uses protocol v1 AppMessage keys `message` (compact JSON record) and `ack` (uint32 record ID). Records contain `v`, `id`, `t`, `w`, `e`, `wt`, `r`, `c`, and `d` fields for schema, ID, timestamp, A/B value, exercise IDs, weight snapshots, repetitions, completion, and deload flags. The watch outbox is capped at three records; a full queue reports `Sync Required` and never overwrites data.
 
 ### Tier 3: phone-side history
 
