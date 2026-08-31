@@ -8,6 +8,7 @@
 #include "sync_adapter.h"
 #include "sync_completion.h"
 #include "workout_completion.h"
+#include "workout_view.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
@@ -115,6 +116,7 @@ static Window *s_window;
 static TextLayer *s_title_layer;
 static TextLayer *s_exercise_layer;
 static TextLayer *s_hint_layer;
+static Layer *s_workout_layer;
 static PersistedState s_state;
 static bool s_saved;
 static bool s_confirm_abandon;
@@ -137,7 +139,23 @@ static uint8_t s_setup_item;
 static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
+static const uint32_t REST_DURATIONS[] = {800, 200, 800, 200, 800};
+static const VibePattern REST_COMPLETE_PATTERN = { .durations = REST_DURATIONS, .num_segments = 5 };
 static bool s_sync_ready;
+static uint16_t s_query_id;
+static int s_calendar_year, s_calendar_month;
+static uint8_t s_progress_exercise, s_progress_page;
+static bool s_query_connected;
+#define MESSAGE_KEY_type 10006
+#define MESSAGE_KEY_id 10007
+#define MESSAGE_KEY_year 10008
+#define MESSAGE_KEY_month 10009
+#define MESSAGE_KEY_exercise 10010
+#define MESSAGE_KEY_page 10011
+#define MESSAGE_KEY_calendar_id 10012
+#define MESSAGE_KEY_progress_id 10013
+#define MESSAGE_KEY_calendar_mask 10016
+#define MESSAGE_KEY_progress_points 10021
 static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
 static SyncAdapter s_sync_adapter;
@@ -202,6 +220,57 @@ static GColor palette_primary_text(void) { return GColorWhite; }
 static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorWhite); }
 
 static void update_display(void);
+static void query_send(const char *type) {
+  DictionaryIterator *it;
+  if (!s_sync_ready || app_message_outbox_begin(&it) != APP_MSG_OK) { s_query_connected=false; return; }
+  if (++s_query_id == 0) s_query_id=1;
+  dict_write_cstring(it,MESSAGE_KEY_type,type); dict_write_uint16(it,MESSAGE_KEY_id,s_query_id);
+  if (type[0]=='c') { dict_write_uint16(it,MESSAGE_KEY_year,s_calendar_year); dict_write_uint8(it,MESSAGE_KEY_month,s_calendar_month); }
+  else { dict_write_uint8(it,MESSAGE_KEY_exercise,s_progress_exercise); dict_write_uint8(it,MESSAGE_KEY_page,s_progress_page); }
+  s_query_connected=app_message_outbox_send()==APP_MSG_OK;
+}
+
+static void workout_layer_update(Layer *layer, GContext *ctx) {
+  if (!s_state.active || s_state.warmup_active || s_screen != SCREEN_WORKOUT) return;
+  GRect b = layer_get_bounds(layer); uint8_t sets = WORKOUTS[s_state.active_workout][s_state.exercise_index].sets;
+  WorkoutCircleLayout circles = workout_circle_layout(b.size.w, b.size.h, sets);
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, WORKOUTS[s_state.active_workout][s_state.exercise_index].name,
+    fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD), GRect(6, 2, b.size.w / 2, 32), GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  char weight[16], goal[24]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
+  snprintf(goal, sizeof goal, "%dx5 %s", sets, weight);
+  graphics_draw_text(ctx, goal, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(b.size.w / 2, 6, b.size.w / 2 - 6, 28), GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+  if (s_state.rest_active) {
+    int32_t remaining = s_state.rest_end - (int32_t)time(NULL); if (remaining < 0) remaining = 0;
+    char timer[12]; snprintf(timer, sizeof timer, "%ld:%02ld", (long)(remaining / 60), (long)(remaining % 60));
+    graphics_draw_text(ctx, timer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0, 38, b.size.w, 36), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  }
+  for (uint8_t n = 0; n < sets; n++) {
+    int16_t x = circles.x + n * (circles.diameter + circles.gap) + circles.diameter / 2;
+    int16_t y = circles.y + circles.diameter / 2;
+    bool done = n < s_state.set_index;
+    if (done) {
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)); graphics_fill_circle(ctx, GPoint(x, y), circles.diameter / 2);
+      graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+    } else {
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack));
+      graphics_fill_circle(ctx, GPoint(x, y), circles.diameter / 2);
+      graphics_context_set_stroke_color(ctx, GColorWhite); graphics_draw_circle(ctx, GPoint(x, y), circles.diameter / 2);
+      graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+    }
+    char reps[4]; snprintf(reps, sizeof reps, "%d", done ? s_state.work_reps[s_state.exercise_index][n] : 5);
+    graphics_draw_text(ctx, reps, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(x - circles.diameter / 2, y - 11, circles.diameter, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  }
+}
+
+static void set_workout_layer_visible(bool visible) {
+  if (!s_workout_layer) return;
+  layer_set_hidden(s_workout_layer, !visible);
+  layer_set_hidden(text_layer_get_layer(s_title_layer), visible);
+  layer_set_hidden(text_layer_get_layer(s_exercise_layer), visible);
+  layer_set_hidden(text_layer_get_layer(s_hint_layer), visible);
+  if (visible) layer_mark_dirty(s_workout_layer);
+}
 
 static const char *home_label(uint8_t item) {
   if (item == 0) return s_state.active ? "Continue" : "New Workout";
@@ -227,14 +296,14 @@ static void clear_rest(void) {
   s_state.rest_start = 0;
   s_state.rest_end = 0;
   s_state.halfway_alerted = 0;
+  s_state.completion_alerted = 0;
+  s_state.rest_elapsed = 0;
 }
 
 static bool rest_values_valid(time_t now) {
   return s_state.rest_active && s_state.rest_start > 0 &&
       now >= s_state.rest_start && s_state.rest_elapsed <= (uint32_t)(now - s_state.rest_start);
 }
-
-static void finish_rest(void *context);
 
 static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
   time_t now = time(NULL);
@@ -245,9 +314,15 @@ static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
     return;
   }
   uint32_t elapsed = (uint32_t)(now - s_state.rest_start);
+  s_state.rest_elapsed = elapsed;
   if (!s_state.halfway_alerted && elapsed >= REST_SECONDS / 2) {
     vibes_short_pulse();
     s_state.halfway_alerted = 1;
+    save_state();
+  }
+  if (!s_state.completion_alerted && elapsed >= REST_SECONDS) {
+    vibes_enqueue_custom_pattern(REST_COMPLETE_PATTERN);
+    s_state.completion_alerted = 1;
     save_state();
   }
   update_display();
@@ -256,10 +331,6 @@ static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
 static void start_rest_services(void) {
   stop_rest_services();
   tick_timer_service_subscribe(SECOND_UNIT, rest_tick);
-}
-
-static void finish_rest(void *context) {
-  (void)context;
 }
 
 static const char *workout_name(WorkoutType workout) {
@@ -286,6 +357,12 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
     save_state(); update_display();
   }
 }
+static void query_received(DictionaryIterator *i) {
+  Tuple *c=dict_find(i,MESSAGE_KEY_calendar_id), *p=dict_find(i,MESSAGE_KEY_progress_id);
+  if ((c && c->value->uint16==s_query_id && dict_find(i,MESSAGE_KEY_calendar_mask)) ||
+      (p && p->value->uint16==s_query_id && dict_find(i,MESSAGE_KEY_progress_points))) { s_query_connected=true; update_display(); }
+}
+static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }
 static void send_oldest(void) {
   const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready || s_sync_in_flight) return;
   int n = sync_record_to_json(r, s_sync_wire, sizeof s_sync_wire); if (n <= 0) return;
@@ -471,6 +548,23 @@ static void load_state(void) {
       s_state.completion_blocked = 0; s_state.selected_reps = 5; save_state(); return;
     }
   }
+  if (version == 9) {
+    PersistedStateV9 old;
+    if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
+        workout_state_valid((PersistedState *)&old) && sync_queue_valid(&old.outbox) &&
+        (!old.pending_valid || sync_record_valid(&old.pending_record))) {
+      memset(&s_state, 0, sizeof s_state);
+      memcpy(&s_state, &old, sizeof old);
+      s_state.schema_version = STORAGE_SCHEMA_VERSION;
+      s_state.rest_elapsed = s_state.rest_active && s_state.rest_start > 0 && time(NULL) >= s_state.rest_start ?
+        (uint32_t)(time(NULL) - s_state.rest_start) : 0;
+      s_state.rest_end = 0;
+      s_state.completion_alerted = 0;
+      save_state();
+      if (s_state.rest_active) start_rest_services();
+      return;
+    }
+  }
   if (persist_exists(STORAGE_KEY_STATE) &&
       persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state)) == sizeof(s_state) &&
       s_state.schema_version == STORAGE_SCHEMA_VERSION && workout_state_valid(&s_state) &&
@@ -478,7 +572,7 @@ static void load_state(void) {
       s_state.next_workout <= WORKOUT_B && s_state.active_workout <= WORKOUT_B &&
       (!s_state.active || (s_state.exercise_index < 3 &&
        s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets)) &&
-      s_state.active <= 1 && s_state.rest_active <= 1 && s_state.halfway_alerted <= 1 && valid_advisory_state() &&
+      s_state.active <= 1 && s_state.rest_active <= 1 && s_state.halfway_alerted <= 1 && s_state.completion_alerted <= 1 && valid_advisory_state() &&
       (!s_state.rest_active || (s_state.active &&
        s_state.exercise_index < 3 && s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets))) {
     for (size_t n = 0; n < 5; n++) if (!weight_valid(s_state.weights[n])) s_state.weights[n] = DEFAULT_WEIGHTS[n];
@@ -504,6 +598,7 @@ static void load_state(void) {
 }
 
 static void update_display(void) {
+  set_workout_layer_visible(s_state.active && !s_state.warmup_active && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
     text_layer_set_text(s_title_layer, "StrongLifts");
@@ -530,7 +625,9 @@ static void update_display(void) {
   if (s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
     text_layer_set_text(s_title_layer, s_screen == SCREEN_HISTORY ? "History" : "Progress");
-    text_layer_set_text(s_exercise_layer, s_screen == SCREEN_HISTORY ? "No History" : "No Progress");
+    if (!s_query_connected) text_layer_set_text(s_exercise_layer, "Phone Needed");
+    else if (s_screen == SCREEN_HISTORY) { snprintf(s_exercise_text,sizeof s_exercise_text,"%d/%d\nNo History",s_calendar_month,s_calendar_year); text_layer_set_text(s_exercise_layer,s_exercise_text); }
+    else { snprintf(s_exercise_text,sizeof s_exercise_text,"%s\nNo Progress",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
     text_layer_set_text(s_hint_layer, "Back: return");
     return;
   }
@@ -583,13 +680,12 @@ static void update_display(void) {
 
   if (s_state.rest_active) {
     s_feedback[0] = 0;
-    int32_t remaining = s_state.rest_end - (int32_t)time(NULL);
-    if (remaining < 0) remaining = 0;
-    snprintf(s_exercise_text, sizeof(s_exercise_text), "Rest\n%ld:%02ld\n%s\nSet %d of %d",
-             (long)(remaining / 60), (long)(remaining % 60),
+    uint32_t elapsed = (uint32_t)(time(NULL) - s_state.rest_start);
+    snprintf(s_exercise_text, sizeof(s_exercise_text), "%lu:%02lu\n%s\nSet %d of %d",
+             (unsigned long)(elapsed / 60), (unsigned long)(elapsed % 60),
              WORKOUTS[s_state.active_workout][s_state.exercise_index].name,
              s_state.set_index + 1, WORKOUTS[s_state.active_workout][s_state.exercise_index].sets);
-    text_layer_set_text(s_title_layer, "Rest");
+    text_layer_set_text(s_title_layer, "");
     text_layer_set_text(s_exercise_layer, s_exercise_text);
     text_layer_set_text(s_hint_layer, "Select: skip");
     return;
@@ -661,9 +757,7 @@ static void complete_set(void) {
   if (s_state.warmup_active) {
     if (++s_state.warmup_index < s_state.warmup_plan.count) { save_state(); update_display(); return; }
     clear_warmup(); save_state();
-    time_t now = time(NULL); s_state.rest_active = 1; s_state.rest_start = (int32_t)now;
-    s_state.rest_end = (int32_t)(now + REST_SECONDS); s_state.halfway_alerted = 0;
-    save_state(); start_rest_services(); update_display(); return;
+    update_display(); return;
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
   if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1) {
@@ -694,8 +788,10 @@ static void complete_set(void) {
     time_t now = time(NULL);
     s_state.rest_active = 1;
     s_state.rest_start = (int32_t)now;
-    s_state.rest_end = (int32_t)(now + REST_SECONDS);
+    s_state.rest_end = 0;
+    s_state.rest_elapsed = 0;
     s_state.halfway_alerted = 0;
+    s_state.completion_alerted = 0;
     save_state();
     start_rest_services();
     update_display();
@@ -760,7 +856,9 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
       s_selected_workout = s_state.next_workout; s_screen = SCREEN_WORKOUT_SELECT; update_display(); return;
     }
     if (s_home_item == 1) { s_screen = SCREEN_SETUP; s_setup = true; s_setup_item = 0; update_display(); return; }
-    s_screen = s_home_item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS; update_display(); return;
+    s_screen = s_home_item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS; s_query_connected=false;
+    if (s_screen==SCREEN_HISTORY) { time_t now=time(NULL); struct tm *tm=localtime(&now); s_calendar_year=tm->tm_year+1900; s_calendar_month=tm->tm_mon+1; query_send("calendar_request"); }
+    else { s_progress_exercise=0; s_progress_page=0; query_send("progress_request"); } update_display(); return;
   }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_state.next_workout = s_selected_workout; s_screen = SCREEN_WORKOUT; }
   if (s_plateau) { s_state.plateau_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
@@ -793,7 +891,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   } else if (s_state.rest_active) {
     clear_rest();
     save_state();
-    update_display();
+    complete_set();
   } else if (!s_state.active) {
     for (uint8_t n = 0; n < 5; n++) {
       DeloadState d = { .failure_streak = s_state.failure_streaks[n], .accepted_deloads = s_state.accepted_deloads[n], .failure_reviewed = s_state.failure_reviewed[n], .plateau_reviewed = s_state.plateau_reviewed[n] };
@@ -822,6 +920,8 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
 static void up_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_HOME) { if (s_home_item > 0) s_home_item--; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
+  if (s_screen == SCREEN_HISTORY) { if (--s_calendar_month<1){s_calendar_month=12;s_calendar_year--;} query_send("calendar_request"); update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS) { if (s_progress_page) s_progress_page--; query_send("progress_request"); update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     s_deload_adjusting = true;
@@ -835,12 +935,16 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
     }
     save_state(); update_display(); return;
   }
-  if (s_state.active && !s_state.rest_active && !s_confirm_abandon) { s_show_plates = !s_show_plates; update_display(); }
+  if (s_state.active && !s_confirm_abandon && !s_state.warmup_active) {
+    s_selected_reps = workout_view_rep_up(s_selected_reps); s_state.selected_reps = s_selected_reps; save_state(); update_display();
+  }
 }
 
 static void down_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_HOME) { if (s_home_item < 3) s_home_item++; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
+  if (s_screen == SCREEN_HISTORY) { if (++s_calendar_month>12){s_calendar_month=1;s_calendar_year++;} query_send("calendar_request"); update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS) { if (s_progress_page<255) s_progress_page++; query_send("progress_request"); update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     if (s_deload_adjusting) s_deload_weight = previous_achievable_total(s_deload_weight, &inventory);
@@ -851,8 +955,8 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
     if (s_state.active && s_state.warmup_active && !s_state.rest_active) {
       if (++s_state.warmup_index >= s_state.warmup_plan.count) clear_warmup();
       save_state(); update_display();
-    } else if (s_state.active && !s_state.rest_active && !s_show_plates && !s_confirm_abandon) {
-      s_selected_reps = s_selected_reps == 0 ? 5 : s_selected_reps - 1; s_state.selected_reps = s_selected_reps; save_state(); update_display();
+    } else if (s_state.active && !s_state.warmup_active && !s_show_plates && !s_confirm_abandon) {
+      s_selected_reps = workout_view_rep_down(s_selected_reps); s_state.selected_reps = s_selected_reps; save_state(); update_display();
     } else if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
     return;
   }
@@ -924,10 +1028,15 @@ static void window_load(Window *window) {
   text_layer_set_text_color(s_hint_layer, palette_accent());
   text_layer_set_background_color(s_hint_layer, GColorClear);
   layer_add_child(root, text_layer_get_layer(s_hint_layer));
+  s_workout_layer = layer_create(bounds);
+  layer_set_update_proc(s_workout_layer, workout_layer_update);
+  layer_add_child(root, s_workout_layer);
+  layer_set_hidden(s_workout_layer, true);
   update_display();
 }
 
 static void window_unload(Window *window) {
+  layer_destroy(s_workout_layer);
   text_layer_destroy(s_title_layer);
   text_layer_destroy(s_exercise_layer);
   text_layer_destroy(s_hint_layer);
@@ -940,7 +1049,7 @@ static void init(void) {
       sync_cancel_adapter, NULL);
   if (!sync_queue_valid(&s_state.outbox)) { s_state.outbox.count = 0; save_state(); }
   if (s_state.pending_valid && !sync_record_valid(&s_state.pending_record)) { s_state.pending_valid = 0; save_state(); }
-  app_message_register_inbox_received(sync_received); app_message_register_outbox_sent(sync_sent);
+  app_message_register_inbox_received(inbox_received); app_message_register_outbox_sent(sync_sent);
   /* Legacy readiness hook is intentionally disabled; Pebble has no readiness callback. */
 #if 0
   AppMessageResult app_result = app_message_open(128, 128); s_sync_ready = app_result == APP_MSG_OK;

@@ -26,6 +26,19 @@ function readIndex() {
 function listChunkKeys() { var out=[]; for(var i=0;i<(localStorage.length||0);i++){var k=localStorage.key(i);if(k&&k.indexOf(CHUNK_PREFIX)===0)out.push(k);} return out; }
 function readChunk(key) { try { var c=JSON.parse(localStorage.getItem(key)); if(!c||!Array.isArray(c.records)) return null; return c; } catch(e) { console.log('history chunk ignored'); return null; } }
 function scanHistory() { var ids={}, max=0, corrupt=[]; listChunkKeys().forEach(function(k){var c=readChunk(k);if(!c){corrupt.push(k);return;} var n=parseInt(k.slice(CHUNK_PREFIX.length),10);if(n>max)max=n;c.records.forEach(function(r){if(r&&r.id&&ids[String(r.id)]===undefined)ids[String(r.id)]=r;});}); return {records:ids,maxChunk:max,corrupt:corrupt}; }
+function completedRecords() { var s=scanHistory(); return Object.keys(s.records).map(function(k){return s.records[k];}).filter(function(r){return r && r.c===1 && Number.isFinite(r.t);}).sort(function(a,b){return a.t-b.t||String(a.id).localeCompare(String(b.id));}); }
+function dateOf(t) { var d=new Date(t*1000); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate()}; }
+function monthDays(year, month) { var n=new Date(Date.UTC(year,month,0)).getUTCDate(), mask=[]; for(var i=0;i<Math.ceil(n/8);i++)mask[i]=0; completedRecords().forEach(function(r){var d=dateOf(r.t), bit=d.d-1;if(d.y===year&&d.m===month&&d.d<=n)mask[Math.floor(bit/8)]|=1<<(bit%8);}); return {year:year,month:month,days:n,mask:mask}; }
+var EXERCISES=['Squat','Bench','Row','OHP','Deadlift'];
+function progress(exercise,page) { if(exercise<0||exercise>4||page<0)return {points:[],page:page,total:0}; var pts=[]; completedRecords().forEach(function(r){var i=r.e.indexOf(exercise);if(i>=0&&Number.isFinite(r.wt[i]))pts.push({t:r.t,w:r.wt[i]});}); var total=Math.ceil(pts.length/20), start=Math.max(0,pts.length-(page+1)*20); return {exercise:exercise,page:page,total:total,points:pts.slice(start, start+20)}; }
+function requestId(p) { return Number.isInteger(p)&&p>0&&p<=0xffff ? p : 0; }
+function sendQuery(p) {
+  if (!p || p.type !== 'calendar_request' && p.type !== 'progress_request' || !requestId(p.id)) return;
+  var out;
+  if(p.type==='calendar_request' && Number.isInteger(p.year)&&p.year>=2000&&p.year<=2100&&Number.isInteger(p.month)&&p.month>=1&&p.month<=12) { var c=monthDays(p.year,p.month); out={calendar_id:p.id,calendar_year:c.year,calendar_month:c.month,calendar_days:c.days,calendar_mask:c.mask.join('')}; }
+  if(p.type==='progress_request' && Number.isInteger(p.exercise)&&p.exercise>=0&&p.exercise<5&&Number.isInteger(p.page)&&p.page>=0) { var g=progress(p.exercise,p.page);out={progress_id:p.id,progress_exercise:g.exercise,progress_page:g.page,progress_total:g.total,progress_points:JSON.stringify(g.points)}; }
+  if(out) try { Pebble.sendAppMessage(out); } catch(e) {}
+}
 function recordsEqual(a,b) { return !!a&&!!b&&['v','id','t','w','c','d'].every(function(k){return a[k]===b[k];})&&JSON.stringify(a.e)===JSON.stringify(b.e)&&JSON.stringify(a.wt)===JSON.stringify(b.wt)&&JSON.stringify(a.r)===JSON.stringify(b.r); }
 function store(record) {
   var expected = record && record.w === 1 ? [0,3,4] : [0,1,2];
@@ -47,6 +60,7 @@ function store(record) {
 Pebble.addEventListener('ready', function() { console.log('StrongLifts sync ready'); });
 Pebble.addEventListener('appmessage', function(event) {
   var p = event && event.payload || {};
+  if (p.type === 'calendar_request' || p.type === 'progress_request') { sendQuery(p); return; }
   if (!p.message) return;
   var record;
   try { record = JSON.parse(String(p.message)); } catch (e) { Pebble.sendAppMessage({ack: 0}); return; }
@@ -55,4 +69,4 @@ Pebble.addEventListener('appmessage', function(event) {
 });
 
 // Exported for dependency-free tests under Node.
-if (typeof module !== 'undefined') module.exports = {readIndex: readIndex, store: store, listChunkKeys:listChunkKeys, readChunk:readChunk, scanHistory:scanHistory, repairIndex:function(i,s){Object.keys(s.records).forEach(function(id){if(i.ids.indexOf(id)<0)i.ids.push(id);});i.nextChunk=Math.max(i.nextChunk||1,s.maxChunk+1);return i;}, recordsEqual:recordsEqual};
+if (typeof module !== 'undefined') module.exports = {readIndex: readIndex, store: store, listChunkKeys:listChunkKeys, readChunk:readChunk, scanHistory:scanHistory, completedRecords:completedRecords, monthDays:monthDays, progress:progress, sendQuery:sendQuery, requestId:requestId, exerciseNames:EXERCISES, repairIndex:function(i,s){Object.keys(s.records).forEach(function(id){if(i.ids.indexOf(id)<0)i.ids.push(id);});i.nextChunk=Math.max(i.nextChunk||1,s.maxChunk+1);return i;}, recordsEqual:recordsEqual};

@@ -17,7 +17,7 @@
     "enableMultiJS": true,
     "targetPlatforms": ["flint", "emery", "gabbro"],
     "watchapp": { "watchface": false },
-    "messageKeys": ["message", "ack", "sync_type", "sync_id", "sync_data", "sync_status"],
+    "messageKeys": ["message", "ack", "sync_type", "sync_id", "sync_data", "sync_status", "type", "id", "year", "month", "exercise", "page", "calendar_id", "calendar_year", "calendar_month", "calendar_days", "calendar_mask", "progress_id", "progress_exercise", "progress_page", "progress_total", "progress_points"],
     "resources": { "media": [] }
   }
 }
