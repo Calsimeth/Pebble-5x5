@@ -35,8 +35,8 @@ function requestId(p) { return Number.isInteger(p)&&p>0&&p<=0xffff ? p : 0; }
 function sendQuery(p) {
   if (!p || p.type !== 'calendar_request' && p.type !== 'progress_request' || !requestId(p.id)) return;
   var out;
-  if(p.type==='calendar_request' && Number.isInteger(p.year)&&p.year>=2000&&p.year<=2100&&Number.isInteger(p.month)&&p.month>=1&&p.month<=12) { var c=monthDays(p.year,p.month); out={calendar_id:p.id,calendar_year:c.year,calendar_month:c.month,calendar_days:c.days,calendar_mask:c.mask.join('')}; }
-  if(p.type==='progress_request' && Number.isInteger(p.exercise)&&p.exercise>=0&&p.exercise<5&&Number.isInteger(p.page)&&p.page>=0) { var g=progress(p.exercise,p.page);out={progress_id:p.id,progress_exercise:g.exercise,progress_page:g.page,progress_total:g.total,progress_points:JSON.stringify(g.points)}; }
+  if(p.type==='calendar_request' && Number.isInteger(p.year)&&p.year>=2000&&p.year<=2100&&Number.isInteger(p.month)&&p.month>=1&&p.month<=12) { var c=monthDays(p.year,p.month), mask=(c.mask[0]||0)|(c.mask[1]||0)<<8|(c.mask[2]||0)<<16|(c.mask[3]||0)<<24; out={calendar_id:p.id,calendar_year:c.year,calendar_month:c.month,calendar_days:c.days,calendar_mask:mask>>>0}; }
+  if(p.type==='progress_request' && Number.isInteger(p.exercise)&&p.exercise>=0&&p.exercise<5&&Number.isInteger(p.page)&&p.page>=0) { var g=progress(p.exercise,p.page), chunks=Math.max(1,Math.ceil(g.points.length/5)); for(var ci=0;ci<chunks;ci++){out={progress_id:p.id,progress_exercise:g.exercise,progress_page:g.page,progress_total:g.total,progress_chunk_index:ci,progress_chunk_count:chunks};g.points.slice(ci*5,ci*5+5).forEach(function(pt,j){out['progress_t'+j]=pt.t;out['progress_w'+j]=pt.w;});try{Pebble.sendAppMessage(out);}catch(e){} } return; }
   if(out) try { Pebble.sendAppMessage(out); } catch(e) {}
 }
 function recordsEqual(a,b) { return !!a&&!!b&&['v','id','t','w','c','d'].every(function(k){return a[k]===b[k];})&&JSON.stringify(a.e)===JSON.stringify(b.e)&&JSON.stringify(a.wt)===JSON.stringify(b.wt)&&JSON.stringify(a.r)===JSON.stringify(b.r); }

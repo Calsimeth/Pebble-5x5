@@ -8,7 +8,10 @@
 #include "sync_adapter.h"
 #include "sync_completion.h"
 #include "workout_completion.h"
+#include "history_progress.h"
 #include "workout_view.h"
+#include "rest_state.h"
+#include "migration.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
@@ -71,15 +74,6 @@ typedef struct {
 } PersistedStateV8;
 
 typedef struct {
-  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index, rest_active;
-  int32_t rest_start, rest_end; uint8_t halfway_alerted;
-  Weight weights[5], active_weights[3]; uint8_t work_reps[3][5], failure_streaks[5];
-  PlateCounts inventory_counts; uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
-  int32_t last_completed; uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], plateau_reviewed[5], accepted_deloads[5];
-  SyncQueue outbox; uint32_t next_record_id; SyncRecord pending_record; uint8_t pending_valid, completion_blocked, selected_reps;
-} PersistedStateV9;
-
-typedef struct {
   uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
   uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
   Weight weights[5]; PlateCounts inventory_counts;
@@ -122,7 +116,11 @@ static bool s_saved;
 static bool s_confirm_abandon;
 static bool s_show_plates;
 static bool s_setup;
-typedef enum { SCREEN_HOME, SCREEN_SETUP, SCREEN_WORKOUT, SCREEN_WORKOUT_SELECT, SCREEN_HISTORY, SCREEN_PROGRESS } ScreenState;
+typedef enum { SETUP_MENU, SETUP_WEIGHTS, SETUP_PLATES } SetupMode;
+static SetupMode s_setup_mode;
+static uint8_t s_weight_index;
+static uint8_t s_plate_index;
+typedef enum { SCREEN_HOME, SCREEN_SETUP, SCREEN_WORKOUT, SCREEN_WORKOUT_SELECT, SCREEN_HISTORY, SCREEN_PROGRESS_PICKER, SCREEN_PROGRESS_GRAPH } ScreenState;
 static ScreenState s_screen = SCREEN_HOME;
 static uint8_t s_home_item;
 static WorkoutType s_selected_workout;
@@ -146,6 +144,8 @@ static uint16_t s_query_id;
 static int s_calendar_year, s_calendar_month;
 static uint8_t s_progress_exercise, s_progress_page;
 static bool s_query_connected;
+static CalendarResponse s_calendar;
+static ProgressAssembly s_progress_data;
 #define MESSAGE_KEY_type 10006
 #define MESSAGE_KEY_id 10007
 #define MESSAGE_KEY_year 10008
@@ -153,9 +153,13 @@ static bool s_query_connected;
 #define MESSAGE_KEY_exercise 10010
 #define MESSAGE_KEY_page 10011
 #define MESSAGE_KEY_calendar_id 10012
-#define MESSAGE_KEY_progress_id 10013
+#define MESSAGE_KEY_progress_id 10017
 #define MESSAGE_KEY_calendar_mask 10016
-#define MESSAGE_KEY_progress_points 10021
+#define MESSAGE_KEY_progress_year 10018
+#define MESSAGE_KEY_progress_chunk_index 10021
+#define MESSAGE_KEY_progress_chunk_count 10022
+#define MESSAGE_KEY_progress_t0 10023
+#define MESSAGE_KEY_progress_w0 10028
 static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
 static SyncAdapter s_sync_adapter;
@@ -186,7 +190,7 @@ static void retry_sync(void *context) {
   }
 }
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
-static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
+static const PlateCounts DEFAULT_COUNTS = {2, 0, 1, 0, 1, 1, 1};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
 static void save_state(void);
 static bool allocate_record_id(PersistedState *state, uint32_t *out) {
@@ -241,8 +245,8 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   snprintf(goal, sizeof goal, "%dx5 %s", sets, weight);
   graphics_draw_text(ctx, goal, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(b.size.w / 2, 6, b.size.w / 2 - 6, 28), GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
   if (s_state.rest_active) {
-    int32_t remaining = s_state.rest_end - (int32_t)time(NULL); if (remaining < 0) remaining = 0;
-    char timer[12]; snprintf(timer, sizeof timer, "%ld:%02ld", (long)(remaining / 60), (long)(remaining % 60));
+    uint32_t elapsed = rest_elapsed(s_state.rest_start, (int32_t)time(NULL));
+    char timer[12]; snprintf(timer, sizeof timer, "%lu:%02lu", (unsigned long)(elapsed / 60), (unsigned long)(elapsed % 60));
     graphics_draw_text(ctx, timer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0, 38, b.size.w, 36), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
   for (uint8_t n = 0; n < sets; n++) {
@@ -313,16 +317,15 @@ static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
     update_display();
     return;
   }
-  uint32_t elapsed = (uint32_t)(now - s_state.rest_start);
-  s_state.rest_elapsed = elapsed;
-  if (!s_state.halfway_alerted && elapsed >= REST_SECONDS / 2) {
+  RestState rest = { .active=s_state.rest_active, .halfway_alerted=s_state.halfway_alerted, .completion_alerted=s_state.completion_alerted, .start=s_state.rest_start, .elapsed=s_state.rest_elapsed };
+  int alerts = rest_alerts_due(&rest, (int32_t)now);
+  s_state.rest_elapsed = rest.elapsed; s_state.halfway_alerted = rest.halfway_alerted; s_state.completion_alerted = rest.completion_alerted;
+  if (alerts & 1) {
     vibes_short_pulse();
-    s_state.halfway_alerted = 1;
     save_state();
   }
-  if (!s_state.completion_alerted && elapsed >= REST_SECONDS) {
+  if (alerts & 2) {
     vibes_enqueue_custom_pattern(REST_COMPLETE_PATTERN);
-    s_state.completion_alerted = 1;
     save_state();
   }
   update_display();
@@ -359,8 +362,8 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
 }
 static void query_received(DictionaryIterator *i) {
   Tuple *c=dict_find(i,MESSAGE_KEY_calendar_id), *p=dict_find(i,MESSAGE_KEY_progress_id);
-  if ((c && c->value->uint16==s_query_id && dict_find(i,MESSAGE_KEY_calendar_mask)) ||
-      (p && p->value->uint16==s_query_id && dict_find(i,MESSAGE_KEY_progress_points))) { s_query_connected=true; update_display(); }
+  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_query_connected=true;update_display();} return; }
+  if (p) { Tuple *pg=dict_find(i,MESSAGE_KEY_progress_page),*tt=dict_find(i,MESSAGE_KEY_progress_total),*ix=dict_find(i,MESSAGE_KEY_progress_chunk_index),*cc=dict_find(i,MESSAGE_KEY_progress_chunk_count); ProgressPoint pts[5];uint8_t n=0;for(uint8_t z=0;z<5;z++){Tuple *t=dict_find(i,MESSAGE_KEY_progress_t0+z),*w=dict_find(i,MESSAGE_KEY_progress_w0+z);if(!t||!w)break;pts[n++]=(ProgressPoint){t->value->int32,w->value->uint16};}if(pg&&tt&&ix&&cc&&progress_chunk_add(&s_progress_data,p->value->uint16,pg->value->uint8,tt->value->uint8,ix->value->uint8,cc->value->uint8,pts,n)){if(progress_assembly_complete(&s_progress_data)){s_query_connected=true;update_display();}} }
 }
 static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }
 static void send_oldest(void) {
@@ -551,16 +554,7 @@ static void load_state(void) {
   if (version == 9) {
     PersistedStateV9 old;
     if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
-        (old.schema_version = STORAGE_SCHEMA_VERSION) &&
-        workout_state_valid((PersistedState *)&old) && sync_queue_valid(&old.outbox) &&
-        (!old.pending_valid || sync_record_valid(&old.pending_record))) {
-      memset(&s_state, 0, sizeof s_state);
-      memcpy(&s_state, &old, sizeof old);
-      s_state.schema_version = STORAGE_SCHEMA_VERSION;
-      s_state.rest_elapsed = s_state.rest_active && s_state.rest_start > 0 && time(NULL) >= s_state.rest_start ?
-        (uint32_t)(time(NULL) - s_state.rest_start) : 0;
-      s_state.rest_end = 0;
-      s_state.completion_alerted = 0;
+        migrate_v9_to_v10(&old, &s_state, (int32_t)time(NULL))) {
       save_state();
       if (s_state.rest_active) start_rest_services();
       return;
@@ -601,7 +595,7 @@ static void load_state(void) {
 static void update_display(void) {
   set_workout_layer_visible(s_state.active && !s_state.warmup_active && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
-    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
     text_layer_set_text(s_title_layer, "StrongLifts");
     snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s\n%s%s\n%s%s",
              s_home_item == 0 ? "> " : "  ", home_label(0),
@@ -623,12 +617,13 @@ static void update_display(void) {
     text_layer_set_text(s_hint_layer, "Up/Down: choose");
     return;
   }
-  if (s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS) {
+  if (s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_PROGRESS_GRAPH) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-    text_layer_set_text(s_title_layer, s_screen == SCREEN_HISTORY ? "History" : "Progress");
+    text_layer_set_text(s_title_layer, s_screen == SCREEN_HISTORY ? "History" : (s_screen == SCREEN_PROGRESS_PICKER ? "Progress Picker" : "Progress Graph"));
     if (!s_query_connected) text_layer_set_text(s_exercise_layer, "Phone Needed");
     else if (s_screen == SCREEN_HISTORY) { snprintf(s_exercise_text,sizeof s_exercise_text,"%d/%d\nNo History",s_calendar_month,s_calendar_year); text_layer_set_text(s_exercise_layer,s_exercise_text); }
-    else { snprintf(s_exercise_text,sizeof s_exercise_text,"%s\nNo Progress",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
+    else if (s_screen == SCREEN_PROGRESS_PICKER) { snprintf(s_exercise_text,sizeof s_exercise_text,"%s",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
+    else { snprintf(s_exercise_text,sizeof s_exercise_text,"%s\nLoading",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
     text_layer_set_text(s_hint_layer, "Back: return");
     return;
   }
@@ -857,10 +852,11 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
       s_selected_workout = s_state.next_workout; s_screen = SCREEN_WORKOUT_SELECT; update_display(); return;
     }
     if (s_home_item == 1) { s_screen = SCREEN_SETUP; s_setup = true; s_setup_item = 0; update_display(); return; }
-    s_screen = s_home_item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS; s_query_connected=false;
+    s_screen = s_home_item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS_PICKER; s_query_connected=false;
     if (s_screen==SCREEN_HISTORY) { time_t now=time(NULL); struct tm *tm=localtime(&now); s_calendar_year=tm->tm_year+1900; s_calendar_month=tm->tm_mon+1; query_send("calendar_request"); }
-    else { s_progress_exercise=0; s_progress_page=0; query_send("progress_request"); } update_display(); return;
+    else { s_progress_exercise=0; s_progress_page=0; update_display(); } return;
   }
+  if (s_screen == SCREEN_PROGRESS_PICKER) { s_screen=SCREEN_PROGRESS_GRAPH; s_progress_page=0; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_state.next_workout = s_selected_workout; s_screen = SCREEN_WORKOUT; }
   if (s_plateau) { s_state.plateau_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
   if (s_deload) {
@@ -922,7 +918,8 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_HOME) { if (s_home_item > 0) s_home_item--; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (--s_calendar_month<1){s_calendar_month=12;s_calendar_year--;} query_send("calendar_request"); update_display(); return; }
-  if (s_screen == SCREEN_PROGRESS) { if (s_progress_page) s_progress_page--; query_send("progress_request"); update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise) s_progress_exercise--; update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_page) s_progress_page--; query_send("progress_request"); update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     s_deload_adjusting = true;
@@ -945,7 +942,8 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_HOME) { if (s_home_item < 3) s_home_item++; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (++s_calendar_month>12){s_calendar_month=1;s_calendar_year++;} query_send("calendar_request"); update_display(); return; }
-  if (s_screen == SCREEN_PROGRESS) { if (s_progress_page<255) s_progress_page++; query_send("progress_request"); update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise<4) s_progress_exercise++; update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_page<255) s_progress_page++; query_send("progress_request"); update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     if (s_deload_adjusting) s_deload_weight = previous_achievable_total(s_deload_weight, &inventory);
@@ -988,6 +986,8 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
 static void back_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
   if (s_screen == SCREEN_HOME) { window_stack_pop_all(true); return; }
+  if (s_screen == SCREEN_PROGRESS_GRAPH) { s_screen=SCREEN_PROGRESS_PICKER; s_query_connected=false; update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY) { show_home(); return; }
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
 }
 
