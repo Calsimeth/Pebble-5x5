@@ -16,18 +16,21 @@ int main(void) {
   assert(deload_gap_due(7 * 86400 + 1, 0));
   assert(!deload_gap_due(0, 1));
 
+  state.failure_streak = 1; assert(!deload_should_prompt(&state, false));
+  state.failure_streak = 2; assert(!deload_should_prompt(&state, false));
   state.failure_streak = 3;
   state.pending = true;
-  assert(!deload_should_prompt(&state, true));
+  assert(deload_should_prompt(&state, false));
   state.pending = false;
   assert(deload_should_prompt(&state, false));
   deload_decline(&state);
-  state.failure_streak = 0;
   assert(!deload_should_prompt(&state, false));
   state.failure_streak = 1;
   assert(deload_should_prompt(&state, true));
   deload_review_gap(&state);
   assert(!deload_should_prompt(&state, true));
+  state.gap_reviewed = false; state.failure_reviewed = true;
+  assert(deload_should_prompt(&state, true));
 
   state.accepted_deloads = 1;
   state.failure_streak = 3;
@@ -35,5 +38,7 @@ int main(void) {
   assert(state.accepted_deloads == 2 && state.failure_streak == 0 && !state.pending);
   state.failure_streak = 3;
   assert(plateau_advisory_due(&state));
+  deload_accept(&state);
+  assert(state.current_weight == WEIGHT_LB(225));
   return 0;
 }

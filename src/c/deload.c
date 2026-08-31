@@ -20,8 +20,8 @@ bool deload_gap_due(int64_t now, int64_t last_completed) {
 }
 
 bool deload_should_prompt(const DeloadState *state, bool gap_due) {
-  if (!state || state->pending) return false;
-  return deload_after_failure(state->failure_streak) ||
+  if (!state) return false;
+  return (deload_after_failure(state->failure_streak) && !state->failure_reviewed) ||
          (gap_due && !state->gap_reviewed);
 }
 
@@ -33,11 +33,15 @@ void deload_accept(DeloadState *state) {
 }
 
 void deload_decline(DeloadState *state) {
-  if (state) state->pending = false;
+  if (state) { state->pending = false; state->failure_reviewed = true; }
 }
 
 void deload_review_gap(DeloadState *state) {
   if (state) state->gap_reviewed = true;
+}
+
+void deload_review_failure(DeloadState *state) {
+  if (state) state->failure_reviewed = true;
 }
 
 bool plateau_advisory_due(const DeloadState *state) {

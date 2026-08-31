@@ -3,10 +3,12 @@
 #include "warmups.h"
 #include "progression.h"
 #include "deload.h"
+#include "sync.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
-  STORAGE_SCHEMA_VERSION = 7,
+  STORAGE_SCHEMA_VERSION = 8,
+  STORAGE_KEY_OUTBOX = 2,
   REST_SECONDS = 180,
 };
 
@@ -36,7 +38,9 @@ typedef struct {
   uint8_t warmup_active, warmup_index;
   WarmupPlan warmup_plan;
   int32_t last_completed;
-  uint8_t deload_pending[5], gap_reviewed[5], accepted_deloads[5];
+  uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], accepted_deloads[5];
+  SyncQueue outbox;
+  uint32_t next_record_id;
 } PersistedState;
 
 typedef struct {
@@ -98,13 +102,16 @@ static bool s_setup;
 static bool s_weights_adjusted;
 static bool s_deload;
 static bool s_deload_adjusting;
+static bool s_plateau;
 static Weight s_deload_weight;
+static uint8_t s_deload_workout;
 static uint8_t s_selected_reps = 5;
 static char s_feedback[24];
 static uint8_t s_setup_item;
 static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
+static bool s_sync_ready;
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 2, 0, 2, 2, 2};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
@@ -207,10 +214,26 @@ static void save_state(void) {
   persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
 }
 
+static void send_oldest(void);
+static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; }
+static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; send_oldest(); }
+static void sync_received(DictionaryIterator *i, void *ctx) {
+  (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
+  if (!id) return;
+  SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
+  if (r && id->value->uint32 == r->id && sync_queue_ack(&s_state.outbox, r->id)) { persist_write_data(STORAGE_KEY_OUTBOX, &s_state.outbox, sizeof s_state.outbox); send_oldest(); update_display(); }
+}
+static void send_oldest(void) {
+  const SyncRecord *r = sync_queue_peek(&s_state.outbox); if (!r || !s_sync_ready) return;
+  uint8_t raw[64]; uint16_t n = sync_record_serialize(r, raw, sizeof raw); if (!n) return;
+  DictionaryIterator *out; if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
+  dict_write_uint32(out, MESSAGE_KEY_ack, r->id); dict_write_data(out, MESSAGE_KEY_message, raw, n); app_message_outbox_send();
+}
+
 static bool valid_advisory_state(void) {
   if (s_state.last_completed < 0) return false;
   for (size_t n = 0; n < 5; n++)
-    if (s_state.deload_pending[n] > 1 || s_state.gap_reviewed[n] > 1) return false;
+    if (s_state.deload_pending[n] > 1 || s_state.gap_reviewed[n] > 1 || s_state.failure_reviewed[n] > 1) return false;
   return true;
 }
 
@@ -220,10 +243,12 @@ static void begin_deload(uint8_t exercise) {
     .failure_streak = s_state.failure_streaks[exercise],
     .accepted_deloads = s_state.accepted_deloads[exercise],
     .pending = s_state.deload_pending[exercise],
-    .gap_reviewed = s_state.gap_reviewed[exercise] };
+    .gap_reviewed = s_state.gap_reviewed[exercise],
+    .failure_reviewed = s_state.failure_reviewed[exercise] };
   bool gap = s_state.last_completed > 0 && deload_gap_due(time(NULL), s_state.last_completed);
   if (!deload_should_prompt(&d, gap)) return;
   s_deload = true; s_deload_adjusting = false; s_setup_item = exercise;
+  s_deload_workout = s_state.next_workout;
   s_deload_weight = deload_weight(s_state.weights[exercise], &inventory);
   s_state.deload_pending[exercise] = 1;
   if (gap) s_state.gap_reviewed[exercise] = 1;
@@ -344,6 +369,8 @@ static void load_state(void) {
       memcpy(&s_state, &old, sizeof old);
       s_state.last_completed = 0;
       save_state();
+      if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
+      else if (s_state.rest_active) { clear_rest(); save_state(); }
       return;
     }
   }
@@ -377,6 +404,12 @@ static void load_state(void) {
 }
 
 static void update_display(void) {
+  if (s_plateau) {
+    text_layer_set_text(s_title_layer, "Plateau likely");
+    text_layer_set_text(s_exercise_layer, "Check form/rest\nSmaller jumps\nReview program");
+    text_layer_set_text(s_hint_layer, "Select: dismiss");
+    return;
+  }
   if (s_deload) {
     char current[16], proposed[16];
     weight_format(s_state.weights[s_setup_item], current, sizeof current);
@@ -520,14 +553,23 @@ static void complete_set(void) {
     PlateInventory inventory = current_inventory();
     s_state.weights[weight_index] = success ? successful_target(old_weight, &inventory) : failed_target(old_weight);
     s_state.failure_streaks[weight_index] = failure_streak_after(success, s_state.failure_streaks[weight_index]);
-    if (!success && deload_after_failure(s_state.failure_streaks[weight_index])) s_state.deload_pending[weight_index] = 1;
+    if (!success && deload_after_failure(s_state.failure_streaks[weight_index])) { s_state.deload_pending[weight_index] = 1; s_state.failure_reviewed[weight_index] = 0; }
     snprintf(s_feedback, sizeof s_feedback, success ? "Weight increased" : "Repeat weight");
     s_state.set_index = 0;
     s_state.exercise_index++;
     if (s_state.exercise_index >= 3) {
       s_state.active = 0;
       s_state.last_completed = (int32_t)time(NULL);
+      memset(s_state.gap_reviewed, 0, sizeof s_state.gap_reviewed);
       s_state.next_workout = s_state.active_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A;
+      SyncRecord record = {0};
+      record.id = ++s_state.next_record_id; if (!record.id) record.id = ++s_state.next_record_id;
+      record.schema_version = SYNC_RECORD_VERSION; record.workout = s_state.active_workout;
+      record.completed_at = s_state.last_completed; record.complete = 1; record.rep_count = 15;
+      for (uint8_t e = 0; e < 3; e++) { record.exercise_ids[e] = e; record.weights[e] = s_state.active_weights[e]; memcpy(record.reps + e * 5, s_state.work_reps[e], 5); }
+      for (uint8_t e = 0; e < 5; e++) if (s_state.deload_pending[e]) record.deload_mask |= (uint8_t)(1u << e);
+      if (!sync_queue_push(&s_state.outbox, &record)) snprintf(s_feedback, sizeof s_feedback, "Sync Required");
+      else { persist_write_data(STORAGE_KEY_OUTBOX, &s_state.outbox, sizeof s_state.outbox); send_oldest(); }
       s_saved = true;
     } else generate_warmup();
   }
@@ -536,15 +578,13 @@ static void complete_set(void) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
+  if (s_plateau) { s_plateau = false; update_display(); return; }
   if (s_deload) {
-    if (s_deload_adjusting) {
-      s_state.weights[s_setup_item] = s_deload_weight;
-      s_state.deload_pending[s_setup_item] = 0;
-      s_state.failure_streaks[s_setup_item] = 0;
-      if (s_state.accepted_deloads[s_setup_item] != UINT8_MAX) s_state.accepted_deloads[s_setup_item]++;
-    } else {
-      s_state.deload_pending[s_setup_item] = 0;
-    }
+    s_state.weights[s_setup_item] = s_deload_weight;
+    s_state.deload_pending[s_setup_item] = 0;
+    s_state.failure_streaks[s_setup_item] = 0;
+    s_state.failure_reviewed[s_setup_item] = 1;
+    if (s_state.accepted_deloads[s_setup_item] != UINT8_MAX) s_state.accepted_deloads[s_setup_item]++;
     s_deload = false; s_deload_adjusting = false; save_state(); update_display(); return;
   }
   if (s_setup) {
@@ -570,7 +610,12 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     save_state();
     update_display();
   } else if (!s_state.active) {
-    begin_deload(0); if (s_deload) return;
+    for (uint8_t n = 0; n < 5; n++) {
+      DeloadState d = { .failure_streak = s_state.failure_streaks[n], .accepted_deloads = s_state.accepted_deloads[n] };
+      if (plateau_advisory_due(&d)) { s_plateau = true; update_display(); return; }
+    }
+    uint8_t indices[3] = {0, 1, s_state.next_workout == WORKOUT_A ? 2 : 3};
+    for (uint8_t n = 0; n < 3; n++) { begin_deload(indices[n]); if (s_deload) return; }
     s_state.active_workout = s_state.next_workout;
     s_state.exercise_index = 0;
     s_state.set_index = 0;
@@ -595,7 +640,7 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
     update_display(); return;
   }
   if (s_setup) {
-    if (s_setup_item < 5) { PlateInventory inventory = current_inventory(); s_state.weights[s_setup_item] = next_achievable_total(s_state.weights[s_setup_item], &inventory); s_state.failure_streaks[s_setup_item] = 0; }
+    if (s_setup_item < 5) { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_setup_item]; Weight next = next_achievable_total(old, &inventory); s_state.weights[s_setup_item] = next; s_state.failure_streaks[s_setup_item] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_setup_item], old, next); }
     else if (s_state.inventory_counts[s_setup_item - 5] < 2) {
       s_state.inventory_counts[s_setup_item - 5]++;
     }
@@ -691,6 +736,16 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   load_state();
+  if (persist_exists(STORAGE_KEY_OUTBOX)) persist_read_data(STORAGE_KEY_OUTBOX, &s_state.outbox, sizeof s_state.outbox);
+  app_message_register_inbox_received(sync_received); app_message_register_outbox_sent(sync_sent);
+  /* Legacy readiness hook is intentionally disabled; Pebble has no readiness callback. */
+#if 0
+  app_message_open(128, 128); s_sync_ready = true;
+  app_message_register_outbox_failed(sync_failed); app_message_registerด_outbox_sent(sync_sent);
+  app_message_open(128, 128); app_message_register_outbox_ready(sync_ready);
+#endif
+  app_message_register_outbox_failed(sync_failed);
+  app_message_open(128, 128); s_sync_ready = true;
   s_window = window_create();
   window_set_background_color(s_window, palette_background());
   window_set_click_config_provider(s_window, click_config_provider);

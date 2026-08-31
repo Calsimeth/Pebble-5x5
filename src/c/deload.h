@@ -18,6 +18,7 @@ typedef struct {
   uint8_t accepted_deloads;
   bool pending;
   bool gap_reviewed;
+  bool failure_reviewed;
 } DeloadState;
 
 bool deload_after_failure(uint8_t failure_streak);
@@ -27,6 +28,7 @@ bool deload_should_prompt(const DeloadState *state, bool gap_due);
 void deload_accept(DeloadState *state);
 void deload_decline(DeloadState *state);
 void deload_review_gap(DeloadState *state);
+void deload_review_failure(DeloadState *state);
 bool plateau_advisory_due(const DeloadState *state);
 
 #endif

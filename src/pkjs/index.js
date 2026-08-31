@@ -31,12 +31,11 @@ function store(record) {
 Pebble.addEventListener('ready', function() { console.log('StrongLifts sync ready'); });
 Pebble.addEventListener('appmessage', function(event) {
   var p = event && event.payload || {};
-  if (p.sync_type !== 1) return;
+  if (!p.message) return;
   var record;
-  try { record = JSON.parse(String(p.sync_data || '')); } catch (e) { Pebble.sendAppMessage({sync_type:3, sync_id:p.sync_id||0, sync_status:1}); return; }
-  if (record.schemaVersion !== VERSION || String(record.id) !== String(p.sync_id)) { Pebble.sendAppMessage({sync_type:3, sync_id:p.sync_id||0, sync_status:2}); return; }
-  if (store(record)) Pebble.sendAppMessage({sync_type:2, sync_id:p.sync_id, sync_status:0});
-  else Pebble.sendAppMessage({sync_type:3, sync_id:p.sync_id, sync_status:3});
+  try { record = JSON.parse(String(p.message)); } catch (e) { Pebble.sendAppMessage({ack: 0}); return; }
+  if (record.schemaVersion !== VERSION || !record.id) { Pebble.sendAppMessage({ack: 0}); return; }
+  if (store(record)) Pebble.sendAppMessage({ack: record.id});
 });
 
 // Exported for dependency-free tests under Node.
