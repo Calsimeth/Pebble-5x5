@@ -70,6 +70,15 @@ typedef struct {
 } PersistedStateV8;
 
 typedef struct {
+  uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index, rest_active;
+  int32_t rest_start, rest_end; uint8_t halfway_alerted;
+  Weight weights[5], active_weights[3]; uint8_t work_reps[3][5], failure_streaks[5];
+  PlateCounts inventory_counts; uint8_t warmup_active, warmup_index; WarmupPlan warmup_plan;
+  int32_t last_completed; uint8_t deload_pending[5], gap_reviewed[5], failure_reviewed[5], plateau_reviewed[5], accepted_deloads[5];
+  SyncQueue outbox; uint32_t next_record_id; SyncRecord pending_record; uint8_t pending_valid, completion_blocked, selected_reps;
+} PersistedStateV9;
+
+typedef struct {
   uint8_t schema_version, next_workout, active, active_workout, exercise_index, set_index;
   uint8_t rest_active; int32_t rest_start, rest_end; uint8_t halfway_alerted;
   Weight weights[5]; PlateCounts inventory_counts;
@@ -222,9 +231,7 @@ static void clear_rest(void) {
 
 static bool rest_values_valid(time_t now) {
   return s_state.rest_active && s_state.rest_start > 0 &&
-      s_state.rest_end > s_state.rest_start &&
-      s_state.rest_end - s_state.rest_start <= REST_SECONDS &&
-      s_state.rest_end >= now;
+      now >= s_state.rest_start && s_state.rest_elapsed <= (uint32_t)(now - s_state.rest_start);
 }
 
 static void finish_rest(void *context);
@@ -237,7 +244,8 @@ static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
     update_display();
     return;
   }
-  if (!s_state.halfway_alerted && now >= s_state.rest_start + REST_SECONDS / 2) {
+  uint32_t elapsed = (uint32_t)(now - s_state.rest_start);
+  if (!s_state.halfway_alerted && elapsed >= REST_SECONDS / 2) {
     vibes_short_pulse();
     s_state.halfway_alerted = 1;
     save_state();
@@ -248,16 +256,10 @@ static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
 static void start_rest_services(void) {
   stop_rest_services();
   tick_timer_service_subscribe(SECOND_UNIT, rest_tick);
-  time_t remaining = s_state.rest_end - time(NULL);
-  s_rest_timer = app_timer_register((uint32_t)remaining * 1000, finish_rest, NULL);
 }
 
 static void finish_rest(void *context) {
-  if (!s_state.rest_active) return;
-  vibes_double_pulse();
-  clear_rest();
-  save_state();
-  update_display();
+  (void)context;
 }
 
 static const char *workout_name(WorkoutType workout) {
@@ -553,6 +555,7 @@ static void update_display(void) {
     return;
   }
   if (s_setup) {
+    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
     if (s_setup_item < 5) {
       char weight[16]; weight_format(s_state.weights[s_setup_item], weight, sizeof weight);
       snprintf(s_exercise_text, sizeof s_exercise_text, "%s\n%s\nQuarter lb", SETUP_WEIGHT_NAMES[s_setup_item], weight);
@@ -889,8 +892,8 @@ static void up_long_click(ClickRecognizerRef recognizer, void *context) {
 
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_single_click_subscribe(BUTTON_ID_UP, up_click);
-  window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_UP, 350, up_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 350, down_click);
   window_single_click_subscribe(BUTTON_ID_BACK, back_click);
   window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, NULL);
   window_long_click_subscribe(BUTTON_ID_UP, 1000, up_long_click, NULL);
