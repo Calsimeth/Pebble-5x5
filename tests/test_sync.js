@@ -2,8 +2,9 @@ var assert=require('assert'), data={}, handlers={}, sent=[], failKey=null, failW
 global.localStorage={get length(){return Object.keys(data).length;},key:function(i){return Object.keys(data)[i]||null;},getItem:function(k){return data[k]===undefined?null:data[k];},setItem:function(k,v){if(k===failKey||(--failWrite===0))throw Error('injected');data[k]=v;}};
 global.Pebble={addEventListener:function(n,f){handlers[n]=f;},sendAppMessage:function(p){sent.push(p);}};
 var sync=require('../src/pkjs/index.js');
-var a={v:1,id:7,t:123,w:0,e:[0,1,2],wt:[180,180,260],r:Array(15).fill(5),c:1,d:0};
+var fs=require('fs'); var a=JSON.parse(fs.readFileSync('tests/fixtures/sync_a.json','utf8')); var b=JSON.parse(fs.readFileSync('tests/fixtures/sync_b.json','utf8'));
 handlers.appmessage({payload:{message:JSON.stringify(a)}}); assert.strictEqual(sent.pop().ack,7); assert.strictEqual(sync.scanHistory().records['7'].id,7);
+handlers.appmessage({payload:{message:fs.readFileSync('tests/fixtures/sync_b.json','utf8')}}); assert.strictEqual(sent.pop().ack,4294967295); assert.strictEqual(sync.scanHistory().records['4294967295'].w,1);
 handlers.appmessage({payload:{message:JSON.stringify(a)}}); assert.strictEqual(sent.pop().ack,7);
 var conflict=Object.assign({},a,{t:124}); sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(conflict)}}); assert.strictEqual(sent.length,0);
 handlers.appmessage({payload:{message:'bad'}}); assert.notStrictEqual(sent.pop().ack,7);
