@@ -267,7 +267,7 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
     graphics_draw_text(ctx,"History",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
     char header[16];snprintf(header,sizeof header,"%d/%d",s_calendar_month,s_calendar_year);graphics_draw_text(ctx,header,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
-    int margin=PBL_IF_ROUND_ELSE(40,0), bottom=PBL_IF_ROUND_ELSE(30,0), top=48, ch=(b.size.h-top-bottom)/6, cw=(b.size.w-margin*2)/7, grid_width=cw*7, left=(b.size.w-grid_width)/2;
+    int margin=PBL_IF_ROUND_ELSE(40,0), bottom=PBL_IF_ROUND_ELSE(32,0), top=48, ch=(b.size.h-top-bottom)/6, cw=(b.size.w-margin*2)/7, grid_width=cw*7, left=(b.size.w-grid_width)/2;
     static const char *weekdays[] = {"S","M","T","W","T","F","S"};
     for(int x=0;x<7;x++) graphics_draw_text(ctx,weekdays[x],fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(left+x*cw,30,cw,13),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     for(int x=0;x<=7;x++) graphics_draw_line(ctx,GPoint(left+x*cw,top),GPoint(left+x*cw,top+ch*6));
