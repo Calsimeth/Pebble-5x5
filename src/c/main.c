@@ -321,8 +321,9 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     graphics_draw_text(ctx, timer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0, 38, b.size.w, 36), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
   time_t clock_time = time(NULL); struct tm *clock_tm = localtime(&clock_time); char clock[8];
-  strftime(clock, sizeof clock, "%H:%M", clock_tm);
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 48, b.size.h - 18, 48, 18), GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  strftime(clock, sizeof clock, "%I:%M", clock_tm);
+  graphics_context_set_text_color(ctx, GColorDarkGray);
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 54, b.size.h - 24, 48, 18), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circles.x + n * (circles.diameter + circles.gap) + circles.diameter / 2;
     int16_t y = circles.y + circles.diameter / 2;
@@ -1023,7 +1024,7 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (--s_calendar_month<1){s_calendar_month=12;s_calendar_year--;} query_send("calendar_request"); update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise) s_progress_exercise--; update_display(); return; }
-  if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_page) s_progress_page--; query_send("progress_request"); update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_data.total && s_progress_page + 1 < s_progress_data.total) { s_progress_page++; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); } update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     s_deload_adjusting = true;
@@ -1048,7 +1049,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (++s_calendar_month>12){s_calendar_month=1;s_calendar_year++;} query_send("calendar_request"); update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise<4) s_progress_exercise++; update_display(); return; }
-  if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_page<255) s_progress_page++; query_send("progress_request"); update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_page > 0) { s_progress_page--; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); } update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     if (s_deload_adjusting) s_deload_weight = previous_achievable_total(s_deload_weight, &inventory);
