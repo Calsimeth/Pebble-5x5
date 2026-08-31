@@ -629,14 +629,13 @@ static void complete_set(void) {
     save_state(); start_rest_services(); update_display(); return;
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
-  if (sync_completion_capacity_blocked(s_state.outbox.count, s_state.pending_valid,
+  if (!sync_completion_log_set(s_state.work_reps[s_state.exercise_index] + s_state.set_index,
+      &s_selected_reps, &s_state.completion_blocked, s_state.outbox.count, s_state.pending_valid,
       s_state.exercise_index, s_state.set_index, 2, current->sets - 1)) {
-    s_state.completion_blocked = 1; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return;
+    save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return;
   }
-  s_state.work_reps[s_state.exercise_index][s_state.set_index] = s_selected_reps;
+  s_state.selected_reps = s_selected_reps;
   save_state();
-  s_selected_reps = 5;
-  s_state.selected_reps = 5;
   s_state.set_index++;
   bool next_set_same_exercise = s_state.set_index < current->sets;
   if (next_set_same_exercise) {
@@ -669,7 +668,8 @@ static void complete_set(void) {
       if (!allocate_record_id(&s_state, &record.id)) { s_state.completion_blocked = 1; s_state.active = 1; s_state.exercise_index = 2; s_state.set_index = 0; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
       uint8_t sets[3]; for (uint8_t e=0;e<3;e++) sets[e]=WORKOUTS[s_state.active_workout][e].sets;
       uint8_t deload_mask=0; for (uint8_t e=0;e<5;e++) if (s_state.deload_pending[e]) deload_mask |= (uint8_t)(1u << e);
-      if (!sync_completion_build_record(&record, record.id, s_state.active_workout, s_state.last_completed, s_state.active_weights, s_state.work_reps, sets, deload_mask)) { s_state.active=1; s_state.exercise_index=2; s_state.set_index=0; s_state.completion_blocked=1; save_state(); snprintf(s_feedback,sizeof s_feedback,"Sync Required"); update_display(); return; }
+      uint16_t snapshot[3]; for (uint8_t e=0;e<3;e++) snapshot[e]=(uint16_t)s_state.active_weights[e];
+      if (!sync_completion_build_record(&record, record.id, s_state.active_workout, s_state.last_completed, snapshot, s_state.work_reps, sets, deload_mask)) { s_state.active=1; s_state.exercise_index=2; s_state.set_index=0; s_state.completion_blocked=1; save_state(); snprintf(s_feedback,sizeof s_feedback,"Sync Required"); update_display(); return; }
       SyncPushResult result = sync_queue_push_result(&s_state.outbox, &record);
       if (result == SYNC_PUSH_FULL) { s_state.pending_record = record; s_state.pending_valid = 1; snprintf(s_feedback, sizeof s_feedback, "Sync Required"); }
       else if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { save_state(); send_oldest(); }

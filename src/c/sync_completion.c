@@ -1,5 +1,6 @@
 #include "sync_completion.h"
 bool sync_completion_capacity_blocked(uint8_t queue_count, bool pending_valid, uint8_t exercise_index, uint8_t set_index, uint8_t final_exercise, uint8_t final_set) { return exercise_index==final_exercise && set_index==final_set && queue_count>=SYNC_QUEUE_CAPACITY && pending_valid; }
+bool sync_completion_log_set(uint8_t *destination, uint8_t *selected_reps, uint8_t *blocked, uint8_t queue_count, bool pending_valid, uint8_t exercise_index, uint8_t set_index, uint8_t final_exercise, uint8_t final_set) { if(!destination||!selected_reps||!blocked)return false; if(sync_completion_capacity_blocked(queue_count,pending_valid,exercise_index,set_index,final_exercise,final_set)){*blocked=1;return false;} destination[0]=*selected_reps;*selected_reps=5;*blocked=0;return true; }
 WorkoutSyncStatus sync_completion_status(uint8_t queue_count, bool blocked) { if (blocked || queue_count>=SYNC_QUEUE_CAPACITY) return WORKOUT_SYNC_REQUIRED; return queue_count ? WORKOUT_SYNC_NOT_SYNCED : WORKOUT_SYNC_CLEAR; }
 SyncPushResult sync_completion_promote(SyncQueue *q, SyncRecord *pending, bool valid) { return sync_pending_promote(q,pending,valid); }
 bool sync_completion_build_record(SyncRecord *r, uint32_t id, uint8_t workout, int32_t timestamp, const uint16_t weights[3], const uint8_t reps[3][5], const uint8_t sets[3], uint8_t deload_mask) {
