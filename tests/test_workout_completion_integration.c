@@ -32,5 +32,9 @@ int main(void) {
   PersistedState completed={0}; restart_round_trip(&reloaded,&completed); assert(completed.last_completed==101&&completed.outbox.count==3&&completed.pending_valid);
   PersistedState failed=initial_state(); failed.outbox.count=0; failed.pending_valid=0; failed.work_reps[2][4]=0; Weight old=failed.active_weights[2]; unsigned streak=failed.failure_streaks[2];
   assert(workout_completion_attempt(&failed,3,200)==COMPLETION_OK); assert(failed.weights[2]==old&&failed.failure_streaks[2]==streak+1);
+  PersistedState b=initial_state(); b.active_workout=WORKOUT_B; b.set_index=0; b.outbox.count=0; b.pending_valid=0; b.weights[2]=111; b.weights[3]=222; b.weights[4]=260; Weight b_old_deadlift=b.active_weights[2];
+  assert(workout_completion_attempt(&b,5,300)==COMPLETION_OK);
+  assert(b.outbox.count==1&&b.outbox.records[0].exercise_ids[2]==4&&b.outbox.records[0].rep_count==11&&b.outbox.records[0].reps[10]==5);
+  assert(b.weights[4]>b_old_deadlift&&b.weights[3]==222&&b.weights[2]==111&&b.weights[0]==initial_state().weights[0]&&b.weights[1]==initial_state().weights[1]&&!b.active&&b.next_workout==WORKOUT_A);
   return 0;
 }
