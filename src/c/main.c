@@ -489,6 +489,8 @@ static void load_state(void) {
       if (rest_values_valid(time(NULL))) start_rest_services();
       else { clear_rest(); save_state(); }
     }
+    uint32_t highest = sync_highest_retained_id(&s_state.outbox, &s_state.pending_record, s_state.pending_valid);
+    if (highest > s_state.next_record_id) { s_state.next_record_id = highest; save_state(); }
     s_selected_reps = s_state.selected_reps; return;
   }
   initialize_state();
