@@ -235,6 +235,27 @@ static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorW
 static void update_display(void);
 static void query_timeout(void *ctx);
 static void resume_deferred_query(void);
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+static void load_visual_fixture(void) {
+  s_calendar_year=2026; s_calendar_month=8; s_screen=SCREEN_HISTORY; s_query_connected=true;
+  s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)}; s_calendar_valid=true;
+  progress_assembly_reset(&s_progress_data); s_progress_exercise=0;
+#if STRONGLIFTS_FIXTURE_ID == 1
+  s_screen=SCREEN_HISTORY;
+#elif STRONGLIFTS_FIXTURE_ID == 2
+  s_calendar.mask=0;
+#elif STRONGLIFTS_FIXTURE_ID == 3
+  s_screen=SCREEN_PROGRESS_GRAPH; s_query_connected=true;
+  { ProgressPoint p[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}}; progress_chunk_add(&s_progress_data,2,0,0,1,0,1,5,p); }
+#elif STRONGLIFTS_FIXTURE_ID == 4
+  s_screen=SCREEN_PROGRESS_GRAPH; s_query_connected=true; progress_chunk_add(&s_progress_data,2,0,0,0,0,1,0,0);
+#elif STRONGLIFTS_FIXTURE_ID == 5
+  s_screen=SCREEN_HISTORY; s_calendar_valid=false; s_query_connected=false; s_query_controller.state=QUERY_WAITING_RESPONSE;
+#elif STRONGLIFTS_FIXTURE_ID == 6
+  s_screen=SCREEN_HISTORY; s_calendar_valid=false; s_query_connected=false; s_query_controller.state=QUERY_FAILED;
+#endif
+}
+#endif
 static void query_cancel(void) { if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;} query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest(); }
 static void history_progress_draw(Layer *layer, GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_stroke_color(ctx,palette_primary_text());
@@ -251,7 +272,7 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
     for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;char v[4];snprintf(v,sizeof v,"%d",d);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(s_calendar.mask&(1u<<(d-1)))graphics_fill_circle(ctx,GPoint(x*cw+cw/2,top+y*ch+ch-4),2);}
   } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data) && s_progress_data.total_points) {
     int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<s_progress_data.total_points;i++){if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
-    if(min!=INT32_MAX){for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/19,x1=i*b.size.w/19;int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,b.size.h-16)+8,y1=graph_coordinate(s_progress_data.points[i].w,min,max,b.size.h-16)+8;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}}
+    if(min!=INT32_MAX){graphics_context_set_stroke_color(ctx,palette_accent());for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/(s_progress_data.total_points-1),x1=i*b.size.w/(s_progress_data.total_points-1);int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,62)+28,y1=graph_coordinate(s_progress_data.points[i].w,min,max,62)+28;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}char stats[64],range[32];struct tm *lo=localtime((time_t *)&s_progress_data.points[0].t),*hi=localtime((time_t *)&s_progress_data.points[s_progress_data.total_points-1].t);strftime(range,sizeof range,"%m/%d",lo);if(hi) {char tail[8];strftime(tail,sizeof tail,"-%m/%d",hi);strncat(range,tail,sizeof(range)-strlen(range)-1);}snprintf(stats,sizeof stats,"%s Min %ld Max %ld lb",range,(long)min,(long)max);graphics_draw_text(ctx,stats,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,94,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);graphics_draw_text(ctx,"Page 1/1",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,110,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);}
     graphics_draw_text(ctx,SETUP_WEIGHT_NAMES[s_progress_exercise],fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     graphics_draw_text(ctx,"lb",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,b.size.h-18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
   } else {
@@ -1151,6 +1172,9 @@ static void init(void) {
   if (s_state.pending_valid) { SyncPushResult result = sync_completion_promote(&s_state.outbox, &s_state.pending_record, true); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { s_state.pending_valid = 0; save_state(); } }
   if (s_sync_ready) send_oldest();
   s_window = window_create();
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  load_visual_fixture();
+#endif
   window_set_background_color(s_window, palette_background());
   window_set_click_config_provider(s_window, click_config_provider);
   window_set_window_handlers(s_window, (WindowHandlers){.load = window_load, .unload = window_unload});

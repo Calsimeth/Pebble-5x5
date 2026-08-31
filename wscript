@@ -1,4 +1,5 @@
 import os.path
+import os
 
 top = '.'
 out = 'build'
@@ -11,10 +12,13 @@ def configure(ctx):
 
 def build(ctx):
     ctx.load('pebble_sdk')
+    fixture = os.environ.get('STRONGLIFTS_VISUAL_FIXTURES')
     binaries = []
     cached_env = ctx.env
     for platform in ctx.env.TARGET_PLATFORMS:
         ctx.env = ctx.all_envs[platform]
+        if fixture:
+            ctx.env.append_value('CFLAGS', ['-DSTRONGLIFTS_VISUAL_FIXTURES=1', '-DSTRONGLIFTS_FIXTURE_ID=' + os.environ.get('STRONGLIFTS_FIXTURE_ID', '1')])
         ctx.set_group(ctx.env.PLATFORM_NAME)
         app_elf = '{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
         ctx.pbl_build(source=ctx.path.ant_glob('src/c/**/*.c'),
