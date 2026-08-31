@@ -110,6 +110,7 @@ static Window *s_window;
 static TextLayer *s_title_layer;
 static TextLayer *s_exercise_layer;
 static TextLayer *s_hint_layer;
+static Layer *s_history_progress_layer;
 static Layer *s_workout_layer;
 static PersistedState s_state;
 static bool s_saved;
@@ -147,6 +148,7 @@ static uint8_t s_progress_exercise, s_progress_page;
 static bool s_query_connected;
 static CalendarResponse s_calendar;
 static ProgressAssembly s_progress_data;
+static bool s_calendar_valid;
 #define MESSAGE_KEY_type 10006
 #define MESSAGE_KEY_id 10007
 #define MESSAGE_KEY_year 10008
@@ -225,6 +227,20 @@ static GColor palette_primary_text(void) { return GColorWhite; }
 static GColor palette_accent(void) { return PBL_IF_COLOR_ELSE(GColorRed, GColorWhite); }
 
 static void update_display(void);
+static void history_progress_draw(Layer *layer, GContext *ctx) {
+  GRect b=layer_get_bounds(layer); graphics_context_set_stroke_color(ctx,palette_primary_text());
+  if(s_screen==SCREEN_HISTORY && s_calendar_valid) {
+    struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
+    int cw=b.size.w/7, top=24, ch=(b.size.h-top)/6;
+    for(int x=0;x<7;x++) graphics_draw_line(ctx,GPoint(x*cw,top),GPoint(x*cw,top+ch*6));
+    for(int y=0;y<=6;y++) graphics_draw_line(ctx,GPoint(0,top+y*ch),GPoint(b.size.w,top+y*ch));
+    for(int d=1;d<=s_calendar.days;d++){int n=first+d-1,x=n%7,y=n/7;char v[3];snprintf(v,sizeof v,"%d",d);graphics_draw_text(ctx,v,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(x*cw+2,top+y*ch+1,cw-3,ch-1),GTextOverflowModeFill,GTextAlignmentCenter,NULL);if(s_calendar.mask&(1u<<(d-1)))graphics_fill_circle(ctx,GPoint(x*cw+cw/2,top+y*ch+ch-4),2);}
+  } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data)) {
+    int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<20;i++){if(i>=s_progress_data.count*5)break;if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
+    if(min!=INT32_MAX){for(uint8_t i=1;i<20&&i<s_progress_data.count*5;i++){int x0=(i-1)*b.size.w/19,x1=i*b.size.w/19;int y0=graph_coordinate(s_progress_data.points[i-1].w,min,max,b.size.h-16)+8,y1=graph_coordinate(s_progress_data.points[i].w,min,max,b.size.h-16)+8;graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}}
+  }
+}
+static void back_click(ClickRecognizerRef recognizer, void *context);
 static void query_send(const char *type) {
   DictionaryIterator *it;
   if (!s_sync_ready || app_message_outbox_begin(&it) != APP_MSG_OK) { s_query_connected=false; return; }
@@ -363,7 +379,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
 }
 static void query_received(DictionaryIterator *i) {
   Tuple *c=dict_find(i,MESSAGE_KEY_calendar_id), *p=dict_find(i,MESSAGE_KEY_progress_id);
-  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_query_connected=true;update_display();} return; }
+  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_calendar_valid=true;s_query_connected=true;update_display();} return; }
   if (p) { Tuple *pg=dict_find(i,MESSAGE_KEY_progress_page),*tt=dict_find(i,MESSAGE_KEY_progress_total),*ix=dict_find(i,MESSAGE_KEY_progress_chunk_index),*cc=dict_find(i,MESSAGE_KEY_progress_chunk_count); ProgressPoint pts[5];uint8_t n=0;for(uint8_t z=0;z<5;z++){Tuple *t=dict_find(i,MESSAGE_KEY_progress_t0+z),*w=dict_find(i,MESSAGE_KEY_progress_w0+z);if(!t||!w)break;pts[n++]=(ProgressPoint){t->value->int32,w->value->uint16};}if(pg&&tt&&ix&&cc&&progress_chunk_add(&s_progress_data,p->value->uint16,pg->value->uint8,tt->value->uint8,ix->value->uint8,cc->value->uint8,pts,n)){if(progress_assembly_complete(&s_progress_data)){s_query_connected=true;update_display();}} }
 }
 static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }
@@ -621,10 +637,12 @@ static void update_display(void) {
   if (s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_PROGRESS_GRAPH) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
     text_layer_set_text(s_title_layer, s_screen == SCREEN_HISTORY ? "History" : (s_screen == SCREEN_PROGRESS_PICKER ? "Progress Picker" : "Progress Graph"));
-    if (!s_query_connected) text_layer_set_text(s_exercise_layer, "Phone Needed");
-    else if (s_screen == SCREEN_HISTORY) { snprintf(s_exercise_text,sizeof s_exercise_text,"%d/%d\nNo History",s_calendar_month,s_calendar_year); text_layer_set_text(s_exercise_layer,s_exercise_text); }
-    else if (s_screen == SCREEN_PROGRESS_PICKER) { snprintf(s_exercise_text,sizeof s_exercise_text,"%s",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
-    else { snprintf(s_exercise_text,sizeof s_exercise_text,"%s\nLoading",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
+    if (s_screen == SCREEN_PROGRESS_PICKER) { snprintf(s_exercise_text,sizeof s_exercise_text,"%s",SETUP_WEIGHT_NAMES[s_progress_exercise]); text_layer_set_text(s_exercise_layer,s_exercise_text); }
+    else if (!s_query_connected) text_layer_set_text(s_exercise_layer, "Phone Needed");
+    else if (s_screen == SCREEN_HISTORY && !s_calendar_valid) text_layer_set_text(s_exercise_layer, "No History");
+    else if (s_screen == SCREEN_HISTORY) { snprintf(s_exercise_text,sizeof s_exercise_text,"%d/%d",s_calendar_month,s_calendar_year); text_layer_set_text(s_exercise_layer,s_exercise_text); }
+    else if (s_screen == SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data)) text_layer_set_text(s_exercise_layer, SETUP_WEIGHT_NAMES[s_progress_exercise]);
+    else text_layer_set_text(s_exercise_layer, "Loading");
     text_layer_set_text(s_hint_layer, "Back: return");
     return;
   }
@@ -928,6 +946,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   } else {
     complete_set();
   }
+  if (s_history_progress_layer) layer_mark_dirty(s_history_progress_layer);
 }
 
 static void up_click(ClickRecognizerRef recognizer, void *context) {
@@ -943,9 +962,10 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
     update_display(); return;
   }
   if (s_setup) {
-    if (s_setup_item < 5) { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_setup_item]; Weight next = next_achievable_total(old, &inventory); s_state.weights[s_setup_item] = next; s_state.failure_streaks[s_setup_item] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_setup_item], old, next); }
-    else if (s_state.inventory_counts[s_setup_item - 5] < 2) {
-      s_state.inventory_counts[s_setup_item - 5]++;
+    if (s_setup_mode == SETUP_MENU) s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
+    else if (s_setup_mode == SETUP_WEIGHTS) { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_weight_index]; Weight next = next_achievable_total(old, &inventory); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); }
+    else if (s_state.inventory_counts[s_plate_index] < 2) {
+      s_state.inventory_counts[s_plate_index]++;
     }
     save_state(); update_display(); return;
   }
@@ -975,10 +995,11 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
     } else if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
     return;
   }
-  if (s_setup_item < 5) {
-    { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_setup_item]; Weight next = previous_achievable_total(old, &inventory); s_state.weights[s_setup_item] = next; s_state.failure_streaks[s_setup_item] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_setup_item], old, next); }
-  } else if (s_state.inventory_counts[s_setup_item - 5] > 0) {
-    s_state.inventory_counts[s_setup_item - 5]--;
+  if (s_setup_mode == SETUP_MENU) s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
+  else if (s_setup_mode == SETUP_WEIGHTS) {
+    { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_weight_index]; Weight next = previous_achievable_total(old, &inventory); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); }
+  } else if (s_state.inventory_counts[s_plate_index] > 0) {
+    s_state.inventory_counts[s_plate_index]--;
   }
   { PlateInventory inventory = current_inventory(); bool changed = false;
     for (size_t n = 0; n < 5; n++) { Weight old = s_state.weights[n]; s_state.weights[n] = normalize_weight_down(old, &inventory); if (old != s_state.weights[n]) { changed = true; s_state.failure_streaks[n] = 0; } }
@@ -989,7 +1010,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void back_long_click(ClickRecognizerRef recognizer, void *context) {
-  if (s_screen == SCREEN_SETUP) { show_home(); return; }
+  if (s_screen == SCREEN_SETUP) { back_click(recognizer, context); return; }
   if (s_deload) { s_deload = false; s_deload_adjusting = false; update_display(); return; }
   if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
@@ -1002,6 +1023,15 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
 static void back_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
   if (s_screen == SCREEN_HOME) { window_stack_pop_all(true); return; }
+  if (s_screen == SCREEN_SETUP) {
+    if (s_setup_mode == SETUP_MENU) { show_home(); return; }
+    if (s_setup_mode == SETUP_WEIGHTS) {
+      if (s_weight_index == 0) s_setup_mode = SETUP_MENU; else s_weight_index--;
+    } else {
+      if (s_plate_index == 0) s_setup_mode = SETUP_MENU; else s_plate_index--;
+    }
+    update_display(); return;
+  }
   if (s_screen == SCREEN_PROGRESS_GRAPH) { s_screen=SCREEN_PROGRESS_PICKER; s_query_connected=false; update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY) { show_home(); return; }
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
@@ -1045,6 +1075,7 @@ static void window_load(Window *window) {
   text_layer_set_text_color(s_hint_layer, palette_accent());
   text_layer_set_background_color(s_hint_layer, GColorClear);
   layer_add_child(root, text_layer_get_layer(s_hint_layer));
+  s_history_progress_layer=layer_create(bounds); layer_set_update_proc(s_history_progress_layer,history_progress_draw); layer_add_child(root,s_history_progress_layer);
   s_workout_layer = layer_create(bounds);
   layer_set_update_proc(s_workout_layer, workout_layer_update);
   layer_add_child(root, s_workout_layer);
@@ -1057,6 +1088,7 @@ static void window_unload(Window *window) {
   text_layer_destroy(s_title_layer);
   text_layer_destroy(s_exercise_layer);
   text_layer_destroy(s_hint_layer);
+  layer_destroy(s_history_progress_layer);
 }
 
 static void init(void) {
