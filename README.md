@@ -99,6 +99,8 @@ Workers must report the build and emulator result for each target. They should n
 
 Slice seven adds five-repetition work-set entry (including valid zero-rep failures), persisted active-workout weight snapshots and per-set results, independent exercise progression, and consecutive-failure streaks. Successful exercises advance to the first achievable target at least 5 lb heavier; failed exercises repeat their weight. Warm-ups remain separate from progression. Schema version 6 migrates active version-5 workouts, preserving completed work sets and repairing expired rests.
 
-The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed; no emulator validation has been run for slice seven yet.
+Slice eight adds optional deload guidance. Three consecutive failures or a gap of more than seven days can suggest an independently calculated, achievable reduction of about 10%; the user can accept, adjust, decline, or back out. Recommendations never silently change weights, and gap reviews are recorded. Accepted deload counts support a dismissible plateau advisory. Schema version 7 preserves slice-seven state while adding completion timestamps and per-exercise advisory state.
 
-The remaining product work is described in [the development discussion guide](docs/development-guide.md). Deloading, long-term history synchronization, and CSV import/export remain future work.
+The current working tree was host-tested in Ubuntu WSL and built for Flint, Emery, and Gabbro. Emulator installation checks are recorded only when performed; no emulator validation has been run for slice eight yet.
+
+The remaining product work is described in [the development discussion guide](docs/development-guide.md). Long-term history synchronization and CSV import/export remain future work.
