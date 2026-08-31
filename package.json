@@ -5,7 +5,8 @@
   "keywords": ["pebble-app"],
   "private": true,
   "scripts": {
-    "test:fixtures": "sh tests/verify_fixtures.sh"
+    "test:fixtures": "sh tests/verify_fixtures.sh",
+    "test:workout-completion": "sh tests/run_workout_completion_test.sh"
   },
   "dependencies": {},
   "pebble": {
