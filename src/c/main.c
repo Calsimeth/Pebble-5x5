@@ -307,6 +307,12 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   if (!s_state.active || s_state.warmup_active || s_screen != SCREEN_WORKOUT) return;
   GRect b = layer_get_bounds(layer); uint8_t sets = WORKOUTS[s_state.active_workout][s_state.exercise_index].sets;
   WorkoutCircleLayout circles = workout_circle_layout(b.size.w, b.size.h, sets);
+  int16_t circle_diameter = circles.diameter, circle_gap = circles.gap, circle_x = circles.x;
+  if (!PBL_IF_COLOR_ELSE(true, false) && sets == 5) {
+    circle_diameter = circles.diameter + 4;
+    circle_gap = 7;
+    circle_x = (b.size.w - (circle_diameter * sets + circle_gap * (sets - 1))) / 2;
+  }
   WorkoutViewModel view = {.set_count=sets, .completed_count=s_state.set_index, .selected_reps=s_selected_reps};
   memcpy(view.completed_reps, s_state.work_reps[s_state.exercise_index], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
@@ -323,23 +329,23 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   graphics_context_set_text_color(ctx, GColorDarkGray);
   graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 60, b.size.h - 38, 48, 18), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
-    int16_t x = circles.x + n * (circles.diameter + circles.gap) + circles.diameter / 2;
-    int16_t y = circles.y + circles.diameter / 2;
+    int16_t x = circle_x + n * (circle_diameter + circle_gap) + circle_diameter / 2;
+    int16_t y = circles.y + circle_diameter / 2;
     /* Flint's narrow monochrome display cannot fit five circle labels cleanly
      * in one row; the alternating offsets preserve the circle text. */
-    y += PBL_IF_COLOR_ELSE(0, (n == 1 || n == 3) ? 10 : -10);
+    y += PBL_IF_COLOR_ELSE(0, (n == 1 || n == 3) ? 14 : -14);
     bool done = n < s_state.set_index;
     if (done) {
-      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)); graphics_fill_circle(ctx, GPoint(x, y), circles.diameter / 2);
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)); graphics_fill_circle(ctx, GPoint(x, y), circle_diameter / 2);
       graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
     } else {
       graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack));
-      graphics_fill_circle(ctx, GPoint(x, y), circles.diameter / 2);
-      graphics_context_set_stroke_color(ctx, GColorWhite); graphics_draw_circle(ctx, GPoint(x, y), circles.diameter / 2);
+      graphics_fill_circle(ctx, GPoint(x, y), circle_diameter / 2);
+      graphics_context_set_stroke_color(ctx, GColorWhite); graphics_draw_circle(ctx, GPoint(x, y), circle_diameter / 2);
       graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
     }
     char reps[4]; snprintf(reps, sizeof reps, "%d", workout_view_display_reps(&view, n));
-    graphics_draw_text(ctx, reps, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(x - circles.diameter / 2, y - 11, circles.diameter, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    graphics_draw_text(ctx, reps, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(x - circle_diameter / 2, y - 11, circle_diameter, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
 }
 
