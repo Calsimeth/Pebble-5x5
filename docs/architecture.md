@@ -73,7 +73,7 @@ Each message carries a stable record identifier so retries are idempotent. Slice
 
 PebbleKit JS `localStorage` is the intended long-term store. It is larger than watch persistence but should not be treated as an unlimited or user-browsable filesystem.
 
-History should be stored in versioned chunks rather than one indefinitely growing JSON value. A possible organization is:
+History is stored in versioned chunks rather than one indefinitely growing JSON value. The organization is:
 
 ```text
 schemaVersion
@@ -101,7 +101,7 @@ Implemented flow:
 
 The phone stores `schemaVersion`, `historyIndex`, and separate `historyChunk:0001`-style JSON values in PebbleKit JS `localStorage`. It scans all chunk keys before every store, reconciles orphan records by ID, chooses an unused key, and writes the chunk before updating the index. It sends ACK only after both writes succeed. Corrupt indexes or chunks are preserved byte-for-byte; orphan chunks are recovered without silent deletion, overwriting, or pruning. Schema-9 state validates queue count, IDs, workout IDs, exercise IDs, weight snapshots, repetition counts, duplicate IDs, selected repetitions, and blocked completion state; invalid queued data is rejected while active workout state is preserved.
 
-AppMessage payloads are size-limited, so large records may require chunking. Protocol messages should contain a schema version and message type.
+AppMessage payloads are size-limited, so the complete normal record is sent in the 128-byte `message` allocation. The record uses `v:1`; retries reuse its stable ID and are idempotent. The watch permits one in-flight record and one timer, with retry delays of 5, 15, 30, 60, and 60 seconds thereafter. Only a matching durable `ack` removes the queue head; malformed or mismatched acknowledgements leave the timer and record untouched.
 
 The canonical wire fixtures are generated from the production encoder with `gcc -std=c11 -Wall -Wextra -Werror -Isrc/c tests/gen_sync_fixture.c src/c/sync.c -o /tmp/gen_sync_fixture && /tmp/gen_sync_fixture`; the Node integration test then feeds the committed fixture strings to the captured production AppMessage callback. The watch payload remains within the 128-byte AppMessage allocation for normal records.
 
