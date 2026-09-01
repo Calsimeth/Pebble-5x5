@@ -675,12 +675,13 @@ static void load_state(void) {
     if (!persist_exists(STORAGE_KEY_SYNC) && persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof s_state) == sizeof s_state && s_state.schema_version == STORAGE_SCHEMA_VERSION) {
       split_loaded = true;
     } else if (persist_read_data(STORAGE_KEY_STATE, &core, sizeof core) == sizeof core &&
-        persist_read_data(STORAGE_KEY_SYNC, &sync, sizeof sync) == sizeof sync &&
-        core.schema_version == STORAGE_SCHEMA_VERSION && sync.schema_version == STORAGE_SCHEMA_VERSION) {
+        core.schema_version == STORAGE_SCHEMA_VERSION) {
       memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &core, sizeof core);
-      s_state.outbox = sync.outbox; s_state.next_record_id = sync.next_record_id;
-      s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
-      s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
+      if (persist_read_data(STORAGE_KEY_SYNC, &sync, sizeof sync) == sizeof sync && sync.schema_version == STORAGE_SCHEMA_VERSION) {
+        s_state.outbox = sync.outbox; s_state.next_record_id = sync.next_record_id;
+        s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
+        s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
+      }
       split_loaded = true;
     }
   }
