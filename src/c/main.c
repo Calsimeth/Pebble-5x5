@@ -320,6 +320,16 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
   snprintf(header, sizeof header, "%s  %dx5 %s", WORKOUTS[s_state.active_workout][s_state.exercise_index].name, sets, weight);
   graphics_draw_text(ctx, header, fonts_get_system_font(PBL_IF_ROUND_ELSE(FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18_BOLD)), GRect(PBL_IF_ROUND_ELSE(28, 6), 20, b.size.w - PBL_IF_ROUND_ELSE(56, 12), 24), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  if (s_confirm_abandon) {
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, GRect(PBL_IF_ROUND_ELSE(12, 4), 48, b.size.w - PBL_IF_ROUND_ELSE(24, 8), 74), 0, GCornerNone);
+    graphics_context_set_text_color(ctx, GColorWhite);
+    graphics_draw_text(ctx, "End Workout?", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(0, 50, b.size.w, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    graphics_draw_text(ctx, "Back: Keep", fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(0, 76, b.size.w, 20), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    graphics_context_set_text_color(ctx, palette_accent());
+    graphics_draw_text(ctx, "Select: End", fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD), GRect(0, 98, b.size.w, 20), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    return;
+  }
   if (s_state.rest_active) {
     uint32_t elapsed = rest_elapsed(s_state.rest_start, (int32_t)time(NULL));
     char timer[12]; snprintf(timer, sizeof timer, "%lu:%02lu", (unsigned long)(elapsed / 60), (unsigned long)(elapsed % 60));
@@ -329,7 +339,8 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   int clock_hour = clock_tm ? clock_tm->tm_hour % 12 : 0; if (!clock_hour) clock_hour = 12;
   snprintf(clock, sizeof clock, "%d:%02d", clock_hour, clock_tm ? clock_tm->tm_min : 0);
   graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - 70, b.size.h - 70, 60, 20), GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  int16_t clock_inset = PBL_IF_ROUND_ELSE(14, 4);
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - clock_inset - 60, b.size.h - 24 - clock_inset, 60, 20), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circle_x + n * (circle_diameter + circle_gap) + circle_diameter / 2;
     int16_t y = circles.y + circle_diameter / 2;
@@ -805,9 +816,9 @@ static void update_display(void) {
 
   if (s_state.active && s_state.warmup_active && !s_show_plates) {
     WarmupSet set = s_state.warmup_plan.sets[s_state.warmup_index];
-    snprintf(s_exercise_text, sizeof s_exercise_text, "%s\nWarmup\nWarm %d of %d\n%ld lb\n5 reps",
-             WORKOUTS[workout][s_state.exercise_index].name, s_state.warmup_index + 1,
-             s_state.warmup_plan.count, (long)(set.weight / 4));
+    snprintf(s_exercise_text, sizeof s_exercise_text, "Warmup %d/%d\n%s\n%ld lb\n5 reps",
+             s_state.warmup_index + 1, s_state.warmup_plan.count,
+             WORKOUTS[workout][s_state.exercise_index].name, (long)(set.weight / 4));
     text_layer_set_text(s_title_layer, s_feedback[0] ? s_feedback : "Warmup"); s_feedback[0] = 0;
     text_layer_set_text(s_exercise_layer, s_exercise_text);
     text_layer_set_text(s_hint_layer, "Sel: done Dn: skip"); return;
