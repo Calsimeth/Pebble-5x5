@@ -1,6 +1,8 @@
 #include <assert.h>
 #include "../src/c/migration.h"
 int main(void) {
+  assert(sizeof(PersistedCoreState) <= 256);
+  assert(sizeof(PersistedSyncState) <= 256);
   PersistedStateV9 v = {0}; PersistedState out = {0};
   v.schema_version=9; v.next_workout=WORKOUT_A; v.active=1; v.active_workout=WORKOUT_A;
   v.rest_active=1; v.rest_start=100; v.selected_reps=3;

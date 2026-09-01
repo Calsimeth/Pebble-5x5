@@ -17,6 +17,7 @@
 
 enum {
   STORAGE_KEY_STATE = 1,
+  STORAGE_KEY_SYNC = 2,
   STORAGE_SCHEMA_VERSION = WORKOUT_STORAGE_SCHEMA,
   REST_SECONDS = 180,
 };
@@ -437,8 +438,16 @@ static const char *workout_name(WorkoutType workout) {
 
 static bool save_state(void) {
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
-  int written = persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
-  s_persistence_failed = written != (int)sizeof(s_state);
+  PersistedCoreState core = {0};
+  PersistedSyncState sync = {0};
+  memcpy(&core, &s_state, sizeof core);
+  sync.schema_version = s_state.schema_version;
+  sync.outbox = s_state.outbox; sync.next_record_id = s_state.next_record_id;
+  sync.pending_record = s_state.pending_record; sync.pending_valid = s_state.pending_valid;
+  sync.completion_blocked = s_state.completion_blocked; sync.selected_reps = s_state.selected_reps;
+  int sync_written = persist_write_data(STORAGE_KEY_SYNC, &sync, sizeof sync);
+  int core_written = persist_write_data(STORAGE_KEY_STATE, &core, sizeof core);
+  s_persistence_failed = sync_written != (int)sizeof(sync) || core_written != (int)sizeof(core);
   if (s_persistence_failed) APP_LOG(APP_LOG_LEVEL_ERROR, "state persistence failed");
   return !s_persistence_failed;
 }
@@ -659,8 +668,22 @@ static void load_state(void) {
       return;
     }
   }
-  if (persist_exists(STORAGE_KEY_STATE) &&
-      persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state)) == sizeof(s_state) &&
+  bool split_loaded = false;
+  if (persist_exists(STORAGE_KEY_STATE)) {
+    PersistedCoreState core = {0}; PersistedSyncState sync = {0};
+    if (!persist_exists(STORAGE_KEY_SYNC) && persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof s_state) == sizeof s_state && s_state.schema_version == STORAGE_SCHEMA_VERSION) {
+      split_loaded = true;
+    } else if (persist_read_data(STORAGE_KEY_STATE, &core, sizeof core) == sizeof core &&
+        persist_read_data(STORAGE_KEY_SYNC, &sync, sizeof sync) == sizeof sync &&
+        core.schema_version == STORAGE_SCHEMA_VERSION && sync.schema_version == STORAGE_SCHEMA_VERSION) {
+      memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &core, sizeof core);
+      s_state.outbox = sync.outbox; s_state.next_record_id = sync.next_record_id;
+      s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
+      s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
+      split_loaded = true;
+    }
+  }
+  if (split_loaded &&
       s_state.schema_version == STORAGE_SCHEMA_VERSION && workout_state_valid(&s_state) &&
       s_state.completion_blocked <= 1 && s_state.selected_reps <= 5 &&
       s_state.next_workout <= WORKOUT_B && s_state.active_workout <= WORKOUT_B &&
