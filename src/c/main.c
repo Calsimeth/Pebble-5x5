@@ -448,6 +448,9 @@ static bool save_state(void) {
   int sync_written = persist_write_data(STORAGE_KEY_SYNC, &sync, sizeof sync);
   int core_written = sync_written == (int)sizeof(sync) ?
     persist_write_data(STORAGE_KEY_STATE, &core, sizeof core) : -1;
+  APP_LOG(APP_LOG_LEVEL_INFO, "persist core=%d/%u sync=%d/%u q=%u", core_written,
+          (unsigned)sizeof(core), sync_written, (unsigned)sizeof(sync),
+          (unsigned)sync.outbox.count);
   s_persistence_failed = sync_written != (int)sizeof(sync) || core_written != (int)sizeof(core);
   if (s_persistence_failed) APP_LOG(APP_LOG_LEVEL_ERROR, "state persistence failed");
   return !s_persistence_failed;
