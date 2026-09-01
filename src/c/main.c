@@ -12,6 +12,7 @@
 #include "history_progress.h"
 #include "query_controller.h"
 #include "workout_view.h"
+#include "workout_transition.h"
 #include "rest_state.h"
 #include "migration.h"
 #include "persistence.h"
@@ -145,7 +146,8 @@ static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static AppTimer *s_final_set_timer;
-static bool s_final_set_pending;
+static FinalSetTransition s_final_transition;
+static bool s_final_set_advance_authorized;
 static void final_set_advance(void *context);
 static const uint32_t FINAL_SET_TRANSITION_MS = 2000;
 static const uint32_t REST_DURATIONS[] = {800, 200, 800, 200, 800};
@@ -185,6 +187,11 @@ static SyncAdapter s_sync_adapter;
 static DictionaryIterator *s_sync_iterator;
 static char s_sync_wire[128];
 static void send_oldest(void);
+static void final_set_log(FinalSetEvent event, uint8_t exercise, uint8_t set, uint8_t reps, uint32_t elapsed_ms, void *context) {
+  (void)context;
+  const char *name = event == FINAL_SET_RECORDED ? "FINAL_SET_RECORDED" : event == FINAL_SET_VISIBLE_LOG ? "FINAL_SET_VISIBLE" : event == FINAL_SET_ADVANCE_LOG ? "FINAL_SET_ADVANCE" : "FINAL_SET_DUPLICATE_IGNORED";
+  APP_LOG(APP_LOG_LEVEL_INFO, "%s e=%u set=%u reps=%u elapsed_ms=%lu", name, exercise, set, reps, (unsigned long)elapsed_ms);
+}
 static void retry_sync(void *context);
 static bool sync_begin_adapter(void *context) { (void)context; return app_message_outbox_begin(&s_sync_iterator) == APP_MSG_OK; }
 static bool sync_write_adapter(void *context) { (void)context; return dict_write_cstring(s_sync_iterator, MESSAGE_KEY_message, s_sync_wire) == DICT_OK; }
@@ -251,10 +258,10 @@ static void update_display(void);
 static void query_timeout(void *ctx);
 static void resume_deferred_query(void);
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
-typedef enum { FIXTURE_HISTORY, FIXTURE_NO_HISTORY, FIXTURE_PROGRESS, FIXTURE_NO_PROGRESS, FIXTURE_LOADING, FIXTURE_PHONE_NEEDED, FIXTURE_COUNT } FixtureScenario;
+typedef enum { FIXTURE_HISTORY, FIXTURE_NO_HISTORY, FIXTURE_PROGRESS, FIXTURE_NO_PROGRESS, FIXTURE_LOADING, FIXTURE_PHONE_NEEDED, FIXTURE_FINAL_VISIBLE, FIXTURE_COUNT } FixtureScenario;
 static FixtureScenario s_fixture_scenario;
 static bool s_fixture_selector;
-static const char *fixture_name(void) { static const char *n[] = {"History Markers","No History","Progress Graph","No Progress","Loading","Phone Needed"}; return n[s_fixture_scenario]; }
+static const char *fixture_name(void) { static const char *n[] = {"History Markers","No History","Progress Graph","No Progress","Loading","Phone Needed","Final Circle"}; return n[s_fixture_scenario]; }
 static void load_visual_fixture(void) {
   s_fixture_selector=true; s_fixture_scenario=FIXTURE_HISTORY; s_calendar_year=2026; s_calendar_month=8; s_progress_exercise=0; s_progress_page=0;
   s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30),(1u<<2)|(1u<<17)|(1u<<30),(1u<<9)|(1u<<23)};
@@ -262,6 +269,13 @@ static void load_visual_fixture(void) {
 }
 static void apply_visual_fixture(void) {
   s_calendar_valid=false; s_query_connected=true; progress_assembly_reset(&s_progress_data); s_query_controller.state=QUERY_IDLE;
+  if(s_fixture_scenario==FIXTURE_FINAL_VISIBLE){
+    s_screen=SCREEN_WORKOUT; s_state.active=1; s_state.active_workout=WORKOUT_A; s_state.exercise_index=2; s_state.set_index=4; s_state.warmup_active=0; s_state.rest_active=0;
+    s_state.active_weights[0]=WEIGHT_LB(95); s_state.active_weights[1]=WEIGHT_LB(65); s_state.active_weights[2]=WEIGHT_LB(135); memset(s_state.work_reps,5,sizeof s_state.work_reps); s_state.work_reps[2][4]=3;
+    final_set_transition_begin(&s_final_transition,2,4,3,true,(uint32_t)time(NULL) * 1000u);
+    s_final_set_timer = app_timer_register(FINAL_SET_TRANSITION_MS, final_set_advance, NULL);
+    s_fixture_selector=false; return;
+  }
   if(s_fixture_scenario==FIXTURE_HISTORY || s_fixture_scenario==FIXTURE_NO_HISTORY){s_screen=SCREEN_HISTORY;s_calendar_valid=true;s_calendar.mask=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30));s_calendar.mask_a=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<2)|(1u<<17)|(1u<<30));s_calendar.mask_b=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<9)|(1u<<23));}
   else {s_screen=SCREEN_PROGRESS_GRAPH;if(s_fixture_scenario==FIXTURE_PROGRESS){ProgressPoint p[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_chunk_add(&s_progress_data,2,0,0,1,0,1,5,p);}else progress_chunk_add(&s_progress_data,2,0,0,0,0,1,0,0);}
   if(s_fixture_scenario==FIXTURE_LOADING){s_calendar_valid=false;s_query_connected=false;s_query_controller.state=QUERY_WAITING_RESPONSE;}
@@ -322,7 +336,8 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     circle_gap = 7;
     circle_x = (b.size.w - (circle_diameter * sets + circle_gap * (sets - 1))) / 2;
   }
-  WorkoutViewModel view = {.set_count=sets, .completed_count=(s_final_set_pending ? (uint8_t)(s_state.set_index + 1) : s_state.set_index), .selected_reps=s_selected_reps, .confirmation=s_confirm_abandon};
+  bool final_visible = final_set_transition_visible(&s_final_transition);
+  WorkoutViewModel view = {.set_count=sets, .completed_count=(final_visible ? (uint8_t)(s_state.set_index + 1) : s_state.set_index), .selected_reps=s_selected_reps, .confirmation=s_confirm_abandon};
   memcpy(view.completed_reps, s_state.work_reps[s_state.exercise_index], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
   char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
@@ -355,7 +370,7 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     /* Flint's narrow monochrome display cannot fit five circle labels cleanly
      * in one row; the alternating offsets preserve the circle text. */
     y += PBL_IF_COLOR_ELSE(0, (n == 1 || n == 3) ? 14 : -14);
-    bool done = n < s_state.set_index;
+    bool done = n < view.completed_count;
     if (done) {
       graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)); graphics_fill_circle(ctx, GPoint(x, y), circle_diameter / 2);
       graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
@@ -930,16 +945,17 @@ static void complete_set(void) {
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
   if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1) {
-    if (!s_final_set_pending) {
+    if (!final_set_transition_visible(&s_final_transition) && !s_final_set_advance_authorized) {
       s_state.work_reps[s_state.exercise_index][s_state.set_index] = s_selected_reps;
       save_state();
-      s_final_set_pending = true;
+      final_set_transition_begin(&s_final_transition, s_state.exercise_index, s_state.set_index,
+          s_state.work_reps[s_state.exercise_index][s_state.set_index], true, (uint32_t)time(NULL) * 1000u);
       layer_mark_dirty(s_workout_layer);
       s_final_set_timer = app_timer_register(FINAL_SET_TRANSITION_MS, final_set_advance, NULL);
       return;
     }
-    s_final_set_pending = false;
     s_final_set_timer = NULL;
+    s_final_set_advance_authorized = false;
     CompletionResult completion = workout_completion_attempt(&s_state, s_selected_reps, (int32_t)time(NULL));
     save_state();
     if (completion == COMPLETION_BLOCKED || completion == COMPLETION_ERROR) snprintf(s_feedback, sizeof s_feedback, "Sync Required");
@@ -1028,7 +1044,13 @@ static void complete_set(void) {
   update_display();
 }
 
-static void final_set_advance(void *context) { (void)context; complete_set(); }
+static void final_set_advance(void *context) {
+  (void)context;
+  if (final_set_transition_advance(&s_final_transition, (uint32_t)time(NULL) * 1000u)) {
+    s_final_set_advance_authorized = true;
+    complete_set();
+  }
+}
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
@@ -1068,7 +1090,10 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     return;
   }
   if (s_show_plates) { s_show_plates = false; update_display(); return; }
-  if (s_final_set_pending) return;
+  if (final_set_transition_visible(&s_final_transition)) {
+    final_set_transition_select(&s_final_transition);
+    return;
+  }
   if (s_saved) {
     s_saved = false;
     update_display();
@@ -1206,7 +1231,8 @@ static void back_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
   if (s_state.active) {
     if (s_confirm_abandon) { s_confirm_abandon = false; save_state(); update_display(); return; }
-    if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; s_final_set_pending = false; }
+    if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; }
+    final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false;
     if (s_state.rest_active) clear_rest();
     clear_warmup(); s_state.completion_blocked = 0; s_state.selected_reps = 5; s_selected_reps = 5;
     s_confirm_abandon = true; save_state(); update_display(); return;
@@ -1266,6 +1292,7 @@ static void window_unload(Window *window) {
 static void init(void) {
   query_controller_init(&s_query_controller);
   load_state();
+  final_set_transition_init(&s_final_transition, final_set_log, NULL);
   sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
       sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,
       sync_cancel_adapter, NULL);
@@ -1293,7 +1320,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; s_final_set_pending = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
+static void deinit(void) { query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();

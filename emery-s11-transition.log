@@ -1,0 +1,6 @@
+[18:02:13] main.c:193> FINAL_SET_RECORDED e=2 set=4 reps=3 elapsed_ms=0
+[18:02:13] main.c:193> FINAL_SET_VISIBLE e=2 set=4 reps=3 elapsed_ms=0
+[18:02:14] main.c:193> FINAL_SET_DUPLICATE_IGNORED e=2 set=4 reps=3 elapsed_ms=0
+[18:02:15] main.c:193> FINAL_SET_ADVANCE e=2 set=4 reps=3 elapsed_ms=2000
+[18:02:15] main.c:471> persist transaction result=0 core=148 sync=176 q=1
+[18:02:15] main.c:471> persist transaction result=0 core=148 sync=176 q=0
