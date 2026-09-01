@@ -652,8 +652,9 @@ static void load_state(void) {
       (!s_state.active || (s_state.exercise_index < 3 &&
        s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets)) &&
       s_state.active <= 1 && s_state.rest_active <= 1 && s_state.halfway_alerted <= 1 && s_state.completion_alerted <= 1 && valid_advisory_state() &&
-      (!s_state.rest_active || (s_state.active &&
+       (!s_state.rest_active || (s_state.active &&
        s_state.exercise_index < 3 && s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets))) {
+    if (workout_state_repair_sync(&s_state)) save_state();
     for (size_t n = 0; n < 5; n++) if (!weight_valid(s_state.weights[n])) s_state.weights[n] = DEFAULT_WEIGHTS[n];
     for (size_t e = 0; e < 3; e++) for (size_t n = 0; n < 5; n++)
       if (!repetition_valid(s_state.work_reps[e][n])) s_state.work_reps[e][n] = 0;

@@ -32,8 +32,13 @@ SyncPushResult workout_completion_handle_ack(PersistedState *s, uint32_t acknowl
   return sync_completion_ack_promote(&s->outbox,acknowledged_id,&s->pending_record,&s->pending_valid,&s->completion_blocked);
 }
 bool workout_state_valid(const PersistedState *s) {
-  if (!s || s->schema_version != WORKOUT_STORAGE_SCHEMA || s->next_workout > WORKOUT_B || s->active_workout > WORKOUT_B || s->active > 1 || s->rest_active > 1 || s->halfway_alerted > 1 || s->completion_blocked > 1 || s->selected_reps > 5 || !sync_queue_valid(&s->outbox) || (s->pending_valid && !sync_record_valid(&s->pending_record))) return false;
+  if (!s || s->schema_version != WORKOUT_STORAGE_SCHEMA || s->next_workout > WORKOUT_B || s->active_workout > WORKOUT_B || s->active > 1 || s->rest_active > 1 || s->halfway_alerted > 1 || s->completion_blocked > 1 || s->selected_reps > 5) return false;
   if (s->active && (s->exercise_index >= 3 || s->set_index >= set_count(s->active_workout,s->exercise_index))) return false;
   for (size_t n=0;n<5;n++) if (s->deload_pending[n]>1 || s->gap_reviewed[n]>1 || s->failure_reviewed[n]>1 || s->plateau_reviewed[n]>1) return false;
   return !s->rest_active || s->active;
+}
+bool workout_state_repair_sync(PersistedState *s) {
+  if (!s) return false;
+  if (sync_queue_valid(&s->outbox) && (!s->pending_valid || sync_record_valid(&s->pending_record))) return false;
+  memset(&s->outbox, 0, sizeof s->outbox); memset(&s->pending_record, 0, sizeof s->pending_record); s->pending_valid=0; s->completion_blocked=0; s->selected_reps=5; return true;
 }

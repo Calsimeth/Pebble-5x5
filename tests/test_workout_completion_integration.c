@@ -36,5 +36,8 @@ int main(void) {
   assert(workout_completion_attempt(&b,5,300)==COMPLETION_OK);
   assert(b.outbox.count==1&&b.outbox.records[0].exercise_ids[2]==4&&b.outbox.records[0].rep_count==11&&b.outbox.records[0].reps[10]==5);
   assert(b.weights[4]>b_old_deadlift&&b.weights[3]==222&&b.weights[2]==111&&b.weights[0]==initial_state().weights[0]&&b.weights[1]==initial_state().weights[1]&&!b.active&&b.next_workout==WORKOUT_A);
+  PersistedState recovered=initial_state(); recovered.weights[0]=777; recovered.inventory_counts[0]=1; recovered.work_reps[1][2]=3; recovered.outbox.records[0].schema_version=99;
+  assert(workout_state_valid(&recovered)); assert(workout_state_repair_sync(&recovered));
+  assert(recovered.weights[0]==777&&recovered.inventory_counts[0]==1&&recovered.work_reps[1][2]==3&&recovered.active&&recovered.exercise_index==2&&recovered.set_index==4&&!recovered.pending_valid&&recovered.outbox.count==0);
   return 0;
 }

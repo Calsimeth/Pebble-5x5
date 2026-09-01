@@ -2,7 +2,7 @@
 #include <string.h>
 #include "rest_state.h"
 int migrate_v9_to_v10(const PersistedStateV9 *old, PersistedState *out, int32_t now) {
-  if (!old || !out || old->schema_version != 9 || old->next_workout > WORKOUT_B || old->active_workout > WORKOUT_B || old->active > 1 || old->rest_active > 1 || old->halfway_alerted > 1 || old->completion_blocked > 1 || old->selected_reps > 5 || !sync_queue_valid(&old->outbox) || (old->pending_valid && !sync_record_valid(&old->pending_record))) return 0;
+  if (!old || !out || old->schema_version != 9 || old->next_workout > WORKOUT_B || old->active_workout > WORKOUT_B || old->active > 1 || old->rest_active > 1 || old->halfway_alerted > 1 || old->completion_blocked > 1 || old->selected_reps > 5) return 0;
   if (old->active && (old->exercise_index >= 3 || old->set_index >= (old->active_workout==WORKOUT_B && old->exercise_index==2 ? 1 : 5))) return 0;
   if (old->rest_active && (!old->active || old->rest_start <= 0 || now < old->rest_start)) return 0;
   memset(out,0,sizeof *out);
@@ -13,5 +13,6 @@ int migrate_v9_to_v10(const PersistedStateV9 *old, PersistedState *out, int32_t 
   out->rest_end=0; out->rest_elapsed=rest_elapsed(old->rest_start,now);
   out->selected_reps = old->selected_reps;
   out->completion_alerted = out->rest_elapsed >= 180;
+  workout_state_repair_sync(out);
   return 1;
 }

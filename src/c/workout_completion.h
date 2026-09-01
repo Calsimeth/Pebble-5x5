@@ -23,4 +23,5 @@ CompletionResult workout_completion_attempt(PersistedState *, uint8_t selected_r
 SyncPushResult workout_completion_handle_ack(PersistedState *, uint32_t acknowledged_id);
 size_t workout_weight_index(uint8_t workout, uint8_t exercise);
 bool workout_state_valid(const PersistedState *state);
+bool workout_state_repair_sync(PersistedState *state);
 #endif
