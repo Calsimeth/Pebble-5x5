@@ -321,13 +321,13 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     circle_gap = 7;
     circle_x = (b.size.w - (circle_diameter * sets + circle_gap * (sets - 1))) / 2;
   }
-  WorkoutViewModel view = {.set_count=sets, .completed_count=(s_final_set_pending ? (uint8_t)(s_state.set_index + 1) : s_state.set_index), .selected_reps=s_selected_reps};
+  WorkoutViewModel view = {.set_count=sets, .completed_count=(s_final_set_pending ? (uint8_t)(s_state.set_index + 1) : s_state.set_index), .selected_reps=s_selected_reps, .confirmation=s_confirm_abandon};
   memcpy(view.completed_reps, s_state.work_reps[s_state.exercise_index], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
   char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
   snprintf(header, sizeof header, "%s  %dx5 %s", WORKOUTS[s_state.active_workout][s_state.exercise_index].name, sets, weight);
   graphics_draw_text(ctx, header, fonts_get_system_font(PBL_IF_ROUND_ELSE(FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18_BOLD)), GRect(PBL_IF_ROUND_ELSE(28, 6), 20, b.size.w - PBL_IF_ROUND_ELSE(56, 12), 24), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  if (s_confirm_abandon) {
+  if (workout_view_confirmation_visible(&view)) {
     graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_fill_rect(ctx, GRect(PBL_IF_ROUND_ELSE(12, 4), 48, b.size.w - PBL_IF_ROUND_ELSE(24, 8), 74), 0, GCornerNone);
     graphics_context_set_text_color(ctx, GColorWhite);
@@ -346,8 +346,8 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
   int clock_hour = clock_tm ? clock_tm->tm_hour % 12 : 0; if (!clock_hour) clock_hour = 12;
   snprintf(clock, sizeof clock, "%d:%02d", clock_hour, clock_tm ? clock_tm->tm_min : 0);
   graphics_context_set_text_color(ctx, GColorWhite);
-  int16_t clock_inset = PBL_IF_ROUND_ELSE(14, 4);
-  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(b.size.w - clock_inset - 60, b.size.h - 24 - clock_inset, 60, 20), GTextOverflowModeFill, GTextAlignmentRight, NULL);
+  WorkoutViewFrame clock_frame = workout_view_clock_frame(b.size.w, b.size.h, PBL_IF_ROUND_ELSE(true, false));
+  graphics_draw_text(ctx, clock, fonts_get_system_font(FONT_KEY_GOTHIC_14), GRect(clock_frame.x, clock_frame.y, clock_frame.width, clock_frame.height), GTextOverflowModeFill, GTextAlignmentRight, NULL);
   for (uint8_t n = 0; n < sets; n++) {
     int16_t x = circle_x + n * (circle_diameter + circle_gap) + circle_diameter / 2;
     int16_t y = circles.y + circle_diameter / 2;

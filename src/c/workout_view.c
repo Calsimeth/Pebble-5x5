@@ -15,6 +15,17 @@ bool workout_view_model_valid(const WorkoutViewModel *model) {
   return true;
 }
 
+bool workout_view_confirmation_visible(const WorkoutViewModel *model) { return model && model->confirmation; }
+bool workout_view_final_transition_ready(bool pending, uint32_t elapsed_ms) { return pending && elapsed_ms >= 650; }
+WorkoutViewFrame workout_view_clock_frame(uint16_t width, uint16_t height, bool round) {
+  int16_t inset = round ? 14 : 4;
+  return (WorkoutViewFrame){(int16_t)(width - inset - 60), (int16_t)(height - 24 - inset), 60, 20};
+}
+WorkoutViewFrame workout_view_warmup_frame(uint16_t width, uint16_t height, bool mono) {
+  (void)width; (void)mono;
+  return (WorkoutViewFrame){4, 58, (int16_t)(width - 8), (int16_t)(height - 88)};
+}
+
 WorkoutCircleLayout workout_circle_layout(uint16_t width, uint16_t height, uint8_t set_count) {
   WorkoutCircleLayout layout = {0};
   if (!set_count) return layout;
