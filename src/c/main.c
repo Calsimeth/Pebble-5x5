@@ -1,6 +1,7 @@
 #include <pebble.h>
 #include "plates.h"
 #include "warmups.h"
+#include "setup_input.h"
 #include "progression.h"
 #include "deload.h"
 #include "sync.h"
@@ -1157,17 +1158,12 @@ static void back_click(ClickRecognizerRef recognizer, void *context) {
   show_home();
 }
 
-static void up_long_click(ClickRecognizerRef recognizer, void *context) {
-  if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
-}
-
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_single_repeating_click_subscribe(BUTTON_ID_UP, 350, up_click);
-  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 350, down_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_REPEAT_INTERVAL_MS, up_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_REPEAT_INTERVAL_MS, down_click);
   window_single_click_subscribe(BUTTON_ID_BACK, back_click);
   window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, NULL);
-  window_long_click_subscribe(BUTTON_ID_UP, 1000, up_long_click, NULL);
 }
 
 static void window_load(Window *window) {
