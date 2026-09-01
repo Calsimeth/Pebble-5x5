@@ -115,6 +115,7 @@ static Layer *s_history_progress_layer;
 static Layer *s_workout_layer;
 static PersistedState s_state;
 static bool s_saved;
+static bool s_persistence_failed;
 static bool s_confirm_abandon;
 static bool s_show_plates;
 static bool s_setup;
@@ -203,7 +204,7 @@ static void retry_sync(void *context) {
 static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_LB(65), WEIGHT_LB(45), WEIGHT_LB(95)};
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 1, 0, 1, 1, 1};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
-static void save_state(void);
+static bool save_state(void);
 static bool allocate_record_id(PersistedState *state, uint32_t *out) {
   return state && out && sync_allocate_id(&state->next_record_id, &state->outbox, &state->pending_record, state->pending_valid, out);
 }
@@ -419,9 +420,12 @@ static const char *workout_name(WorkoutType workout) {
   return workout == WORKOUT_B ? "Workout B" : "Workout A";
 }
 
-static void save_state(void) {
+static bool save_state(void) {
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
-  persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
+  int written = persist_write_data(STORAGE_KEY_STATE, &s_state, sizeof(s_state));
+  s_persistence_failed = written != (int)sizeof(s_state);
+  if (s_persistence_failed) APP_LOG(APP_LOG_LEVEL_ERROR, "state persistence failed");
+  return !s_persistence_failed;
 }
 
 static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; s_sync_in_flight = false; sync_adapter_transport(&s_sync_adapter, false); }
@@ -851,6 +855,7 @@ static void update_display(void) {
   WorkoutSyncStatus sync_status = sync_completion_status(s_state.outbox.count, s_state.completion_blocked);
   if (sync_status == WORKOUT_SYNC_REQUIRED) snprintf(s_hint_text, sizeof s_hint_text, "Sync Required");
   else if (sync_status == WORKOUT_SYNC_NOT_SYNCED) snprintf(s_hint_text, sizeof s_hint_text, "Not Synced");
+  if (s_persistence_failed) snprintf(s_hint_text, sizeof s_hint_text, "Save failed");
   text_layer_set_text(s_exercise_layer, s_exercise_text);
   text_layer_set_text(s_hint_layer, s_hint_text);
 }
