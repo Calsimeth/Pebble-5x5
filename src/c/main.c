@@ -238,35 +238,28 @@ static void update_display(void);
 static void query_timeout(void *ctx);
 static void resume_deferred_query(void);
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
-#ifndef STRONGLIFTS_FIXTURE_ID
-#define STRONGLIFTS_FIXTURE_ID 1
-#endif
+typedef enum { FIXTURE_HISTORY, FIXTURE_NO_HISTORY, FIXTURE_PROGRESS, FIXTURE_NO_PROGRESS, FIXTURE_LOADING, FIXTURE_PHONE_NEEDED, FIXTURE_COUNT } FixtureScenario;
+static FixtureScenario s_fixture_scenario;
+static bool s_fixture_selector;
+static const char *fixture_name(void) { static const char *n[] = {"History Markers","No History","Progress Graph","No Progress","Loading","Phone Needed"}; return n[s_fixture_scenario]; }
 static void load_visual_fixture(void) {
-  s_calendar_year=2026; s_calendar_month=8; s_screen=SCREEN_HISTORY; s_query_connected=true;
-  s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30),(1u<<2)|(1u<<17)|(1u<<30),(1u<<9)|(1u<<23)}; s_calendar_valid=true;
-  progress_assembly_reset(&s_progress_data); s_progress_exercise=0;
-#if STRONGLIFTS_FIXTURE_ID == 1
-  s_screen=SCREEN_HISTORY;
-  { ProgressPoint p[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}}; progress_chunk_add(&s_progress_data,2,0,0,1,0,1,5,p); }
-#elif STRONGLIFTS_FIXTURE_ID == 2
-  s_calendar.mask=0;
-#elif STRONGLIFTS_FIXTURE_ID == 3
-  s_screen=SCREEN_PROGRESS_GRAPH; s_query_connected=true;
-  { ProgressPoint p[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}}; progress_chunk_add(&s_progress_data,2,0,0,1,0,1,5,p); }
-#elif STRONGLIFTS_FIXTURE_ID == 4
-  s_screen=SCREEN_PROGRESS_GRAPH; s_query_connected=true; progress_chunk_add(&s_progress_data,2,0,0,0,0,1,0,0);
-#elif STRONGLIFTS_FIXTURE_ID == 5
-  s_screen=SCREEN_HISTORY; s_calendar_valid=false; s_query_connected=false; s_query_controller.state=QUERY_WAITING_RESPONSE;
-#elif STRONGLIFTS_FIXTURE_ID == 6
-  s_screen=SCREEN_HISTORY; s_calendar_valid=false; s_query_connected=false; s_query_controller.state=QUERY_FAILED;
-#endif
+  s_fixture_selector=true; s_fixture_scenario=FIXTURE_HISTORY; s_calendar_year=2026; s_calendar_month=8; s_progress_exercise=0; s_progress_page=0;
+  s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30),(1u<<2)|(1u<<17)|(1u<<30),(1u<<9)|(1u<<23)};
+  s_calendar_valid=true; s_query_connected=true; progress_assembly_reset(&s_progress_data);
+}
+static void apply_visual_fixture(void) {
+  s_calendar_valid=false; s_query_connected=true; progress_assembly_reset(&s_progress_data); s_query_controller.state=QUERY_IDLE;
+  if(s_fixture_scenario==FIXTURE_HISTORY || s_fixture_scenario==FIXTURE_NO_HISTORY){s_screen=SCREEN_HISTORY;s_calendar_valid=true;s_calendar.mask=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30));s_calendar.mask_a=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<2)|(1u<<17)|(1u<<30));s_calendar.mask_b=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<9)|(1u<<23));}
+  else {s_screen=SCREEN_PROGRESS_GRAPH;if(s_fixture_scenario==FIXTURE_PROGRESS){ProgressPoint p[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_chunk_add(&s_progress_data,2,0,0,1,0,1,5,p);}else progress_chunk_add(&s_progress_data,2,0,0,0,0,1,0,0);}
+  if(s_fixture_scenario==FIXTURE_LOADING){s_calendar_valid=false;s_query_connected=false;s_query_controller.state=QUERY_WAITING_RESPONSE;}
+  if(s_fixture_scenario==FIXTURE_PHONE_NEEDED){s_calendar_valid=false;s_query_connected=false;s_query_controller.state=QUERY_FAILED;}
 }
 #endif
 static void query_cancel(void) { if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;} query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest(); }
 static void history_progress_draw(Layer *layer, GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_stroke_color(ctx,palette_primary_text());
   graphics_context_set_text_color(ctx,GColorWhite); graphics_context_set_fill_color(ctx,palette_accent());
-  if(s_screen==SCREEN_HISTORY && s_calendar_valid) {
+  if(s_screen==SCREEN_HISTORY && s_calendar_valid && s_calendar.mask) {
     graphics_draw_text(ctx,"History",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
     char header[16];snprintf(header,sizeof header,"%d/%d",s_calendar_month,s_calendar_year);graphics_draw_text(ctx,header,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
@@ -299,7 +292,7 @@ static void query_send(const char *type) {
   else { dict_write_uint8(it,MESSAGE_KEY_exercise,s_progress_exercise); dict_write_uint8(it,MESSAGE_KEY_page,s_progress_page); }
   s_query_connected=app_message_outbox_send()==APP_MSG_OK;
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
-  if(s_query_connected && type[0]=='p' && STRONGLIFTS_FIXTURE_ID<=3){ProgressPoint fixture_points[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_assembly_reset(&s_progress_data);progress_chunk_add(&s_progress_data,s_query_id,s_progress_exercise,s_progress_page,1,0,1,5,fixture_points);query_controller_response(&s_query_controller,true,true);update_display();return;}
+  if(s_query_connected && type[0]=='p'){ProgressPoint fixture_points[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_assembly_reset(&s_progress_data);progress_chunk_add(&s_progress_data,s_query_id,s_progress_exercise,s_progress_page,1,0,1,5,fixture_points);query_controller_response(&s_query_controller,true,true);update_display();return;}
 #endif
   if(s_query_connected){s_query_controller.state=QUERY_WAITING_RESPONSE;s_query_timer=app_timer_register(5000,query_timeout,NULL);if(!s_query_timer)query_cancel();}else query_cancel();
 }
@@ -681,11 +674,17 @@ static void load_state(void) {
 
 static void update_display(void) {
   bool dedicated = s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS_GRAPH;
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  if(s_fixture_selector) dedicated=false;
+#endif
   if (s_title_layer) layer_set_hidden(text_layer_get_layer(s_title_layer), dedicated);
   if (s_exercise_layer) layer_set_hidden(text_layer_get_layer(s_exercise_layer), dedicated);
   if (s_hint_layer) layer_set_hidden(text_layer_get_layer(s_hint_layer), dedicated);
   if (s_history_progress_layer) layer_set_hidden(s_history_progress_layer, !dedicated);
   if (dedicated) { text_layer_set_text(s_title_layer, ""); text_layer_set_text(s_exercise_layer, ""); text_layer_set_text(s_hint_layer, ""); }
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  if(s_fixture_selector){text_layer_set_text(s_title_layer,"Visual Fixture");text_layer_set_text(s_exercise_layer,fixture_name());text_layer_set_text(s_hint_layer,"Up/Down choose Select");return;}
+#endif
   set_workout_layer_visible(s_state.active && !s_state.warmup_active && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
@@ -954,6 +953,9 @@ static void complete_set(void) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  if(s_fixture_selector){s_fixture_selector=false;apply_visual_fixture();update_display();return;}
+#endif
   if (s_screen == SCREEN_HOME) {
     if (s_home_item == 0) {
       if (s_state.active) { show_workout(); return; }
@@ -1031,6 +1033,9 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void up_click(ClickRecognizerRef recognizer, void *context) {
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  if(s_fixture_selector){s_fixture_scenario=(s_fixture_scenario+FIXTURE_COUNT-1)%FIXTURE_COUNT;update_display();return;}
+#endif
   if (s_screen == SCREEN_HOME) { if (s_home_item > 0) s_home_item--; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (--s_calendar_month<1){s_calendar_month=12;s_calendar_year--;} query_send("calendar_request"); update_display(); return; }
@@ -1056,6 +1061,9 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void down_click(ClickRecognizerRef recognizer, void *context) {
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  if(s_fixture_selector){s_fixture_scenario=(s_fixture_scenario+1)%FIXTURE_COUNT;update_display();return;}
+#endif
   if (s_screen == SCREEN_HOME) { if (s_home_item < 3) s_home_item++; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (++s_calendar_month>12){s_calendar_month=1;s_calendar_year++;} query_send("calendar_request"); update_display(); return; }
@@ -1103,6 +1111,9 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
 
 static void back_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
+#ifdef STRONGLIFTS_VISUAL_FIXTURES
+  if(!s_fixture_selector && (s_screen==SCREEN_HISTORY || s_screen==SCREEN_PROGRESS_GRAPH)){s_fixture_selector=true;update_display();return;}
+#endif
   if (s_screen == SCREEN_HOME) { window_stack_pop_all(true); return; }
   if (s_screen == SCREEN_SETUP) {
     if (s_setup_mode == SETUP_MENU) { show_home(); return; }
