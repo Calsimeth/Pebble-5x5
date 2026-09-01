@@ -141,6 +141,9 @@ static uint8_t s_setup_item;
 static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
+static AppTimer *s_final_set_timer;
+static bool s_final_set_pending;
+static void final_set_advance(void *context);
 static const uint32_t REST_DURATIONS[] = {800, 200, 800, 200, 800};
 static const VibePattern REST_COMPLETE_PATTERN = { .durations = REST_DURATIONS, .num_segments = 5 };
 static bool s_sync_ready;
@@ -310,7 +313,7 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     circle_gap = 7;
     circle_x = (b.size.w - (circle_diameter * sets + circle_gap * (sets - 1))) / 2;
   }
-  WorkoutViewModel view = {.set_count=sets, .completed_count=s_state.set_index, .selected_reps=s_selected_reps};
+  WorkoutViewModel view = {.set_count=sets, .completed_count=(s_final_set_pending ? (uint8_t)(s_state.set_index + 1) : s_state.set_index), .selected_reps=s_selected_reps};
   memcpy(view.completed_reps, s_state.work_reps[s_state.exercise_index], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
   char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
@@ -870,6 +873,16 @@ static void complete_set(void) {
   }
   const ExerciseDefinition *current = &WORKOUTS[s_state.active_workout][s_state.exercise_index];
   if (s_state.exercise_index == 2 && s_state.set_index == current->sets - 1) {
+    if (!s_final_set_pending) {
+      s_state.work_reps[s_state.exercise_index][s_state.set_index] = s_selected_reps;
+      save_state();
+      s_final_set_pending = true;
+      layer_mark_dirty(s_workout_layer);
+      s_final_set_timer = app_timer_register(650, final_set_advance, NULL);
+      return;
+    }
+    s_final_set_pending = false;
+    s_final_set_timer = NULL;
     CompletionResult completion = workout_completion_attempt(&s_state, s_selected_reps, (int32_t)time(NULL));
     save_state();
     if (completion == COMPLETION_BLOCKED || completion == COMPLETION_ERROR) snprintf(s_feedback, sizeof s_feedback, "Sync Required");
@@ -958,6 +971,8 @@ static void complete_set(void) {
   update_display();
 }
 
+static void final_set_advance(void *context) { (void)context; complete_set(); }
+
 static void select_click(ClickRecognizerRef recognizer, void *context) {
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(s_fixture_selector){s_fixture_selector=false;apply_visual_fixture();update_display();return;}
@@ -996,6 +1011,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     return;
   }
   if (s_show_plates) { s_show_plates = false; update_display(); return; }
+  if (s_final_set_pending) return;
   if (s_saved) {
     s_saved = false;
     update_display();
@@ -1109,9 +1125,7 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   if (s_deload) { s_deload = false; s_deload_adjusting = false; update_display(); return; }
   if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
-    if (s_state.rest_active) { clear_rest(); save_state(); }
-    clear_warmup(); s_state.completion_blocked = 0; s_state.selected_reps = 5; s_selected_reps = 5; save_state(); s_confirm_abandon = true;
-    update_display();
+    back_click(recognizer, context);
   }
 }
 
@@ -1133,6 +1147,13 @@ static void back_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_PROGRESS_GRAPH) { query_cancel(); s_screen=SCREEN_PROGRESS_PICKER; update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY) { query_cancel(); show_home(); return; }
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
+  if (s_state.active) {
+    if (s_confirm_abandon) { s_confirm_abandon = false; save_state(); update_display(); return; }
+    if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; s_final_set_pending = false; }
+    if (s_state.rest_active) clear_rest();
+    clear_warmup(); s_state.completion_blocked = 0; s_state.selected_reps = 5; s_selected_reps = 5;
+    s_confirm_abandon = true; save_state(); update_display(); return;
+  }
   show_home();
 }
 
@@ -1220,7 +1241,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { query_cancel(); stop_rest_services(); sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
+static void deinit(void) { query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; s_final_set_pending = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();
