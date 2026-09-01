@@ -14,6 +14,7 @@
 #include "workout_view.h"
 #include "rest_state.h"
 #include "migration.h"
+#include "persistence.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
@@ -210,6 +211,11 @@ static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_L
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 1, 0, 1, 1, 1};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
 static bool save_state(void);
+static bool persistence_exists_adapter(uint32_t key, void *ctx) { (void)ctx; return persist_exists((uint32_t)key); }
+static int persistence_size_adapter(uint32_t key, void *ctx) { (void)ctx; return persist_get_size((uint32_t)key); }
+static int persistence_read_adapter(uint32_t key, void *data, size_t size, void *ctx) { (void)ctx; return persist_read_data((uint32_t)key, data, (size_t)size); }
+static int persistence_write_adapter(uint32_t key, const void *data, size_t size, void *ctx) { (void)ctx; return persist_write_data((uint32_t)key, data, (size_t)size); }
+static const PersistenceAdapter s_persistence_adapter = { persistence_exists_adapter, persistence_size_adapter, persistence_read_adapter, persistence_write_adapter };
 static bool allocate_record_id(PersistedState *state, uint32_t *out) {
   return state && out && sync_allocate_id(&state->next_record_id, &state->outbox, &state->pending_record, state->pending_valid, out);
 }
@@ -445,13 +451,10 @@ static bool save_state(void) {
   sync.outbox = s_state.outbox; sync.next_record_id = s_state.next_record_id;
   sync.pending_record = s_state.pending_record; sync.pending_valid = s_state.pending_valid;
   sync.completion_blocked = s_state.completion_blocked; sync.selected_reps = s_state.selected_reps;
-  int sync_written = persist_write_data(STORAGE_KEY_SYNC, &sync, sizeof sync);
-  int core_written = sync_written == (int)sizeof(sync) ?
-    persist_write_data(STORAGE_KEY_STATE, &core, sizeof core) : -1;
-  APP_LOG(APP_LOG_LEVEL_INFO, "persist core=%d/%u sync=%d/%u q=%u", core_written,
-          (unsigned)sizeof(core), sync_written, (unsigned)sizeof(sync),
-          (unsigned)sync.outbox.count);
-  s_persistence_failed = sync_written != (int)sizeof(sync) || core_written != (int)sizeof(core);
+  PersistenceResult result = persistence_save(&s_persistence_adapter, sizeof core, &core, sizeof sync, &sync, NULL);
+  APP_LOG(APP_LOG_LEVEL_INFO, "persist transaction result=%d core=%u sync=%u q=%u", result,
+          (unsigned)sizeof(core), (unsigned)sizeof(sync), (unsigned)sync.outbox.count);
+  s_persistence_failed = result != PERSIST_OK;
   if (s_persistence_failed) APP_LOG(APP_LOG_LEVEL_ERROR, "state persistence failed");
   return !s_persistence_failed;
 }
@@ -673,6 +676,19 @@ static void load_state(void) {
     }
   }
   bool split_loaded = false;
+  /* New saves use the two-slot transactional store. Legacy versions above
+   * remain readable from STORAGE_KEY_STATE for migration compatibility. */
+  {
+    PersistedCoreState core = {0}; PersistedSyncState sync = {0}; PersistenceMetadata metadata = {0};
+    if (persistence_load(&s_persistence_adapter, sizeof core, &core, sizeof sync, &sync, NULL, &metadata) == PERSIST_OK) {
+      memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &core, sizeof core);
+      s_state.outbox = sync.outbox; s_state.next_record_id = sync.next_record_id;
+      s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
+      s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
+      APP_LOG(APP_LOG_LEVEL_INFO, "persist loaded generation=%lu", (unsigned long)metadata.generation);
+      split_loaded = true;
+    }
+  }
   if (persist_exists(STORAGE_KEY_STATE)) {
     PersistedCoreState core = {0}; PersistedSyncState sync = {0};
     if (!persist_exists(STORAGE_KEY_SYNC) && persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof s_state) == sizeof s_state && s_state.schema_version == STORAGE_SCHEMA_VERSION) {
