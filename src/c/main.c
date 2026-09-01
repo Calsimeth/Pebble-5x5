@@ -446,7 +446,8 @@ static bool save_state(void) {
   sync.pending_record = s_state.pending_record; sync.pending_valid = s_state.pending_valid;
   sync.completion_blocked = s_state.completion_blocked; sync.selected_reps = s_state.selected_reps;
   int sync_written = persist_write_data(STORAGE_KEY_SYNC, &sync, sizeof sync);
-  int core_written = persist_write_data(STORAGE_KEY_STATE, &core, sizeof core);
+  int core_written = sync_written == (int)sizeof(sync) ?
+    persist_write_data(STORAGE_KEY_STATE, &core, sizeof core) : -1;
   s_persistence_failed = sync_written != (int)sizeof(sync) || core_written != (int)sizeof(core);
   if (s_persistence_failed) APP_LOG(APP_LOG_LEVEL_ERROR, "state persistence failed");
   return !s_persistence_failed;
