@@ -16,7 +16,7 @@ bool workout_view_model_valid(const WorkoutViewModel *model) {
 }
 
 bool workout_view_confirmation_visible(const WorkoutViewModel *model) { return model && model->confirmation; }
-bool workout_view_final_transition_ready(bool pending, uint32_t elapsed_ms) { return pending && elapsed_ms >= 650; }
+bool workout_view_final_transition_ready(bool pending, uint32_t elapsed_ms) { return pending && elapsed_ms >= 2000; }
 WorkoutViewFrame workout_view_clock_frame(uint16_t width, uint16_t height, bool round) {
   int16_t inset = round ? 14 : 4;
   return (WorkoutViewFrame){(int16_t)(width - inset - 60), (int16_t)(height - 24 - inset), 60, 20};

@@ -147,6 +147,7 @@ static AppTimer *s_rest_timer;
 static AppTimer *s_final_set_timer;
 static bool s_final_set_pending;
 static void final_set_advance(void *context);
+static const uint32_t FINAL_SET_TRANSITION_MS = 2000;
 static const uint32_t REST_DURATIONS[] = {800, 200, 800, 200, 800};
 static const VibePattern REST_COMPLETE_PATTERN = { .durations = REST_DURATIONS, .num_segments = 5 };
 static bool s_sync_ready;
@@ -934,7 +935,7 @@ static void complete_set(void) {
       save_state();
       s_final_set_pending = true;
       layer_mark_dirty(s_workout_layer);
-      s_final_set_timer = app_timer_register(650, final_set_advance, NULL);
+      s_final_set_timer = app_timer_register(FINAL_SET_TRANSITION_MS, final_set_advance, NULL);
       return;
     }
     s_final_set_pending = false;

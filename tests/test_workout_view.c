@@ -23,7 +23,7 @@ int main(void) {
   WorkoutViewModel final_fail={.set_count=5,.completed_count=5,.completed_reps={5,5,5,5,2}};
   WorkoutViewModel deadlift={.set_count=1,.completed_count=1,.completed_reps={3}};
   assert(workout_view_display_reps(&final_a,4)==5 && workout_view_display_reps(&final_fail,4)==2 && workout_view_display_reps(&deadlift,0)==3);
-  assert(!workout_view_final_transition_ready(true,649) && workout_view_final_transition_ready(true,650));
+  assert(!workout_view_final_transition_ready(true,1999) && workout_view_final_transition_ready(true,2000));
   WorkoutViewFrame clock=workout_view_clock_frame(180,180,true);
   assert(clock.x>=14 && clock.y>=14 && clock.x+clock.width<=166 && clock.y+clock.height<=166);
   clock=workout_view_clock_frame(144,168,false); assert(clock.x>=0 && clock.y>=0 && clock.x+clock.width<=144 && clock.y+clock.height<=168);
