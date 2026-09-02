@@ -181,6 +181,8 @@ static AppTimer *s_query_timer;
 #define MESSAGE_KEY_progress_chunk_count 10024
 #define MESSAGE_KEY_progress_t0 10026
 #define MESSAGE_KEY_progress_w0 10031
+#define APP_MESSAGE_INBOX_SIZE 256
+#define APP_MESSAGE_OUTBOX_SIZE 128
 static bool s_sync_in_flight;
 static AppTimer *s_sync_ack_timer;
 static SyncAdapter s_sync_adapter;
@@ -1307,13 +1309,13 @@ static void init(void) {
   app_message_register_inbox_received(inbox_received); app_message_register_outbox_sent(sync_sent);
   /* Legacy readiness hook is intentionally disabled; Pebble has no readiness callback. */
 #if 0
-  AppMessageResult app_result = app_message_open(128, 128); s_sync_ready = app_result == APP_MSG_OK;
+  AppMessageResult app_result = app_message_open(APP_MESSAGE_INBOX_SIZE, APP_MESSAGE_OUTBOX_SIZE); APP_LOG(APP_LOG_LEVEL_INFO,"APP_MESSAGE_OPEN inbox=%u outbox=%u result=%d",APP_MESSAGE_INBOX_SIZE,APP_MESSAGE_OUTBOX_SIZE,app_result); s_sync_ready = app_result == APP_MSG_OK;
   if (s_sync_ready) send_oldest();
   app_message_register_outbox_failed(sync_failed); app_message_registerด_outbox_sent(sync_sent);
-  app_message_open(128, 128); app_message_register_outbox_ready(sync_ready);
+  app_message_open(APP_MESSAGE_INBOX_SIZE, APP_MESSAGE_OUTBOX_SIZE); app_message_register_outbox_ready(sync_ready);
 #endif
   app_message_register_outbox_failed(sync_failed);
-  AppMessageResult app_result = app_message_open(128, 128); s_sync_ready = app_result == APP_MSG_OK;
+  AppMessageResult app_result = app_message_open(APP_MESSAGE_INBOX_SIZE, APP_MESSAGE_OUTBOX_SIZE); APP_LOG(APP_LOG_LEVEL_INFO,"APP_MESSAGE_OPEN inbox=%u outbox=%u result=%d",APP_MESSAGE_INBOX_SIZE,APP_MESSAGE_OUTBOX_SIZE,app_result); s_sync_ready = app_result == APP_MSG_OK;
   if (s_state.pending_valid) { SyncPushResult result = sync_completion_promote(&s_state.outbox, &s_state.pending_record, true); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { s_state.pending_valid = 0; save_state(); } }
   if (s_sync_ready) send_oldest();
   s_window = window_create();
