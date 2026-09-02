@@ -2,6 +2,7 @@ var assert=require('assert'), data={}, handlers={}, sent=[], failKey=null, failW
 global.localStorage={get length(){return Object.keys(data).length;},key:function(i){return Object.keys(data)[i]||null;},getItem:function(k){return data[k]===undefined?null:data[k];},setItem:function(k,v){if(k===failKey||(--failWrite===0))throw Error('injected');data[k]=v;}};
 global.Pebble={addEventListener:function(n,f){handlers[n]=f;},sendAppMessage:function(p){sent.push(p);}};
 var sync=require('../src/pkjs/index.js');
+var logs=[], originalLog=console.log; console.log=function(m){logs.push(String(m));};
 var fs=require('fs'); var a=JSON.parse(fs.readFileSync('tests/fixtures/sync_a.json','utf8')); var b=JSON.parse(fs.readFileSync('tests/fixtures/sync_b.json','utf8'));
 handlers.appmessage({payload:{message:JSON.stringify(a)}}); assert.strictEqual(sent.pop().ack,7); assert.strictEqual(sync.scanHistory().records['7'].id,7);
 handlers.appmessage({payload:{message:fs.readFileSync('tests/fixtures/sync_b.json','utf8')}}); assert.strictEqual(sent.pop().ack,4294967295); assert.strictEqual(sync.scanHistory().records['4294967295'].w,1);
@@ -20,4 +21,6 @@ var orphanKey='historyChunk:0123', orphanBytes=JSON.stringify({schemaVersion:1,r
 var corruptKey='historyChunk:0124', corruptBytes='{corrupt'; data[corruptKey]=corruptBytes; var validBytes=data['historyChunk:0001']; data.historyIndex='{bad'; assert(sync.store(Object.assign({},a,{id:13}))); assert.strictEqual(data[corruptKey],corruptBytes); assert.strictEqual(data['historyChunk:0001'],validBytes);
 var repairBefore=data.historyIndex; failWrite=1; assert(!sync.store(Object.assign({},a,{id:14}))); failWrite=0; assert.strictEqual(data['historyChunk:0001'],validBytes); assert(sync.store(Object.assign({},a,{id:14})));
 var conflictBefore=JSON.stringify(data); sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(Object.assign({},a,{id:12,t:999}))}}); assert.strictEqual(sent.length,0); assert.strictEqual(JSON.stringify(data),conflictBefore);
-console.log('sync js tests passed');
+sent.length=0; logs.length=0; handlers.appmessage({payload:{type:'calendar_request',id:41,year:2024,month:2}}); var cal=sent.pop(); assert.strictEqual(cal.calendar_id,41); assert.strictEqual(cal.calendar_year,2024); assert.strictEqual(cal.calendar_month,2); assert.strictEqual(cal.calendar_days,29); assert(logs.some(function(x){return x.indexOf('CALENDAR_REQUEST id=41 year=2024 month=2')===0;}));
+sent.length=0; logs.length=0; handlers.appmessage({payload:{type:'progress_request',id:42,exercise:0,page:0}}); assert(sent.length>=1); sent.forEach(function(chunk){assert.strictEqual(chunk.progress_id,42);assert.strictEqual(chunk.progress_exercise,0);assert.strictEqual(chunk.progress_page,0);assert(chunk.progress_chunk_count>=1&&chunk.progress_point_count<=5);}); assert(logs.some(function(x){return x.indexOf('PROGRESS_REQUEST id=42 exercise=0 page=0')===0;}));
+originalLog('sync js tests passed');
