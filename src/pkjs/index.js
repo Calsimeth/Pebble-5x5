@@ -23,7 +23,8 @@ function readIndex() {
     return recovered;
   }
 }
-function listChunkKeys() { var out=[]; for(var i=0;i<(localStorage.length||0);i++){var k=localStorage.key(i);if(k&&k.indexOf(CHUNK_PREFIX)===0)out.push(k);} return out; }
+var MAX_PROBE_CHUNKS=4096, capabilityLogged=false;
+function listChunkKeys() { var out=[], seen={}; var index=readIndex(), next=Number.isInteger(index.nextChunk)&&index.nextChunk>0&&index.nextChunk<=MAX_PROBE_CHUNKS?index.nextChunk:1, limit=Math.min(MAX_PROBE_CHUNKS,Math.max(next+1,2)); for(var n=1;n<=limit;n++){var key=CHUNK_PREFIX+String(n).padStart(4,'0');if(localStorage.getItem(key)!==null){out.push(key);seen[key]=1;}} if(typeof localStorage.length==='number'&&typeof localStorage.key==='function'){for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf(CHUNK_PREFIX)===0&&!seen[k])out.push(k);}} if(!capabilityLogged){capabilityLogged=true;console.log('HISTORY_STORAGE_CAP length='+ (typeof localStorage.length==='number')+' key='+ (typeof localStorage.key==='function')+' nextChunk='+next+' indexedIds='+((index.ids&&index.ids.length)||0)+' probes='+limit);} return out; }
 function readChunk(key) { try { var c=JSON.parse(localStorage.getItem(key)); if(!c||!Array.isArray(c.records)) return null; return c; } catch(e) { console.log('history chunk ignored'); return null; } }
 function scanHistory() { var ids={}, max=0, corrupt=[]; listChunkKeys().forEach(function(k){var c=readChunk(k);if(!c){corrupt.push(k);return;} var n=parseInt(k.slice(CHUNK_PREFIX.length),10);if(n>max)max=n;c.records.forEach(function(r){if(r&&r.id&&ids[String(r.id)]===undefined)ids[String(r.id)]=r;});}); return {records:ids,maxChunk:max,corrupt:corrupt}; }
 function completedRecords() { var s=scanHistory(); return Object.keys(s.records).map(function(k){return s.records[k];}).filter(function(r){return r && r.c===1 && Number.isFinite(r.t);}).sort(function(a,b){return a.t-b.t||String(a.id).localeCompare(String(b.id));}); }
@@ -66,7 +67,7 @@ Pebble.addEventListener('appmessage', function(event) {
   try { record = JSON.parse(String(p.message)); } catch (e) { console.log('HISTORY_RECORD_REJECTED reason=json'); Pebble.sendAppMessage({ack: 0}); return; }
   console.log('HISTORY_RECORD_RX id=' + (record.id || 0) + ' workout=' + (record.w === 1 ? 'B' : 'A') + ' timestamp=' + (record.t || 0) + ' reps=' + ((record.r && record.r.length) || 0));
   if (record.v !== VERSION || !record.id || !Array.isArray(record.r)) { console.log('HISTORY_RECORD_REJECTED id=' + (record.id || 0) + ' reason=shape'); Pebble.sendAppMessage({ack: 0}); return; }
-  if (store(record)) { console.log('HISTORY_RECORD_VALID id=' + record.id); console.log('HISTORY_ACK_SENT id=' + record.id); Pebble.sendAppMessage({ack: record.id}); }
+  if (store(record)) { var verified=scanHistory().records[String(record.id)]; if(!recordsEqual(verified,record)){console.log('HISTORY_VERIFY_FAILED id='+record.id);return;} console.log('HISTORY_RECORD_VALID id=' + record.id); console.log('HISTORY_VERIFY_VALID id='+record.id); console.log('HISTORY_ACK_SENT id=' + record.id); Pebble.sendAppMessage({ack: record.id}); }
   else console.log('HISTORY_RECORD_REJECTED id=' + record.id + ' reason=validation_or_storage');
 });
 

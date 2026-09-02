@@ -23,4 +23,8 @@ var repairBefore=data.historyIndex; failWrite=1; assert(!sync.store(Object.assig
 var conflictBefore=JSON.stringify(data); sent.length=0; handlers.appmessage({payload:{message:JSON.stringify(Object.assign({},a,{id:12,t:999}))}}); assert.strictEqual(sent.length,0); assert.strictEqual(JSON.stringify(data),conflictBefore);
 sent.length=0; logs.length=0; handlers.appmessage({payload:{type:'calendar_request',id:41,year:2024,month:2}}); var cal=sent.pop(); assert.strictEqual(cal.calendar_id,41); assert.strictEqual(cal.calendar_year,2024); assert.strictEqual(cal.calendar_month,2); assert.strictEqual(cal.calendar_days,29); assert(logs.some(function(x){return x.indexOf('CALENDAR_REQUEST id=41 year=2024 month=2')===0;}));
 sent.length=0; logs.length=0; handlers.appmessage({payload:{type:'progress_request',id:42,exercise:0,page:0}}); assert(sent.length>=1); sent.forEach(function(chunk){assert.strictEqual(chunk.progress_id,42);assert.strictEqual(chunk.progress_exercise,0);assert.strictEqual(chunk.progress_page,0);assert(chunk.progress_chunk_count>=1&&chunk.progress_point_count<=5);}); assert(logs.some(function(x){return x.indexOf('PROGRESS_REQUEST id=42 exercise=0 page=0')===0;}));
+// Pebble localStorage has get/set but may not expose enumeration.
+global.localStorage={getItem:function(k){return data[k]===undefined?null:data[k];},setItem:function(k,v){data[k]=v;}};
+sent.length=0; handlers.appmessage({payload:{type:'calendar_request',id:43,year:2024,month:1}}); assert.strictEqual(sent.pop().calendar_mask,0);
+sent.length=0; handlers.appmessage({payload:{type:'progress_request',id:44,exercise:0,page:0}}); assert(sent.length>0&&sent[0].progress_id===44);
 originalLog('sync js tests passed');
