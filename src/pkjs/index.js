@@ -54,7 +54,7 @@ function store(record) {
     localStorage.setItem(key, JSON.stringify({schemaVersion: VERSION, records: [record]}));
     index.ids.push(String(record.id));
     localStorage.setItem(INDEX_KEY, JSON.stringify(index));
-    return true;
+    console.log('HISTORY_CHUNK_WRITTEN id=' + record.id + ' key=' + key + ' index=ok'); return true;
   } catch (e) { console.log('history storage failed'); return false; }
 }
 Pebble.addEventListener('ready', function() { console.log('StrongLifts sync ready'); });
@@ -63,9 +63,11 @@ Pebble.addEventListener('appmessage', function(event) {
   if (p.type === 'calendar_request' || p.type === 'progress_request') { sendQuery(p); return; }
   if (!p.message) return;
   var record;
-  try { record = JSON.parse(String(p.message)); } catch (e) { Pebble.sendAppMessage({ack: 0}); return; }
-  if (record.v !== VERSION || !record.id || !Array.isArray(record.r)) { Pebble.sendAppMessage({ack: 0}); return; }
-  if (store(record)) Pebble.sendAppMessage({ack: record.id});
+  try { record = JSON.parse(String(p.message)); } catch (e) { console.log('HISTORY_RECORD_REJECTED reason=json'); Pebble.sendAppMessage({ack: 0}); return; }
+  console.log('HISTORY_RECORD_RX id=' + (record.id || 0) + ' workout=' + (record.w === 1 ? 'B' : 'A') + ' timestamp=' + (record.t || 0) + ' reps=' + ((record.r && record.r.length) || 0));
+  if (record.v !== VERSION || !record.id || !Array.isArray(record.r)) { console.log('HISTORY_RECORD_REJECTED id=' + (record.id || 0) + ' reason=shape'); Pebble.sendAppMessage({ack: 0}); return; }
+  if (store(record)) { console.log('HISTORY_RECORD_VALID id=' + record.id); console.log('HISTORY_ACK_SENT id=' + record.id); Pebble.sendAppMessage({ack: record.id}); }
+  else console.log('HISTORY_RECORD_REJECTED id=' + record.id + ' reason=validation_or_storage');
 });
 
 // Exported for dependency-free tests under Node.

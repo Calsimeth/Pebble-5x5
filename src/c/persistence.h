@@ -9,4 +9,5 @@ typedef struct { uint32_t generation; uint8_t slot; uint8_t valid; } Persistence
 typedef enum { PERSIST_OK=0, PERSIST_INVALID=-1, PERSIST_IO=-2, PERSIST_TOO_LARGE=-3 } PersistenceResult;
 PersistenceResult persistence_save(const PersistenceAdapter*,size_t,const void*,size_t,const void*,void*);
 PersistenceResult persistence_load(const PersistenceAdapter*,size_t,void*,size_t,void*,void*,PersistenceMetadata*);
+uint32_t persistence_last_generation(void);
 #endif

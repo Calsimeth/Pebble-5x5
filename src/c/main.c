@@ -193,9 +193,9 @@ static void final_set_log(FinalSetEvent event, uint8_t exercise, uint8_t set, ui
   APP_LOG(APP_LOG_LEVEL_INFO, "%s e=%u set=%u reps=%u elapsed_ms=%lu", name, exercise, set, reps, (unsigned long)elapsed_ms);
 }
 static void retry_sync(void *context);
-static bool sync_begin_adapter(void *context) { (void)context; return app_message_outbox_begin(&s_sync_iterator) == APP_MSG_OK; }
+static bool sync_begin_adapter(void *context) { (void)context; AppMessageResult r=app_message_outbox_begin(&s_sync_iterator); APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_SEND begin=%d bytes=%u",r,(unsigned)strlen(s_sync_wire)); return r == APP_MSG_OK; }
 static bool sync_write_adapter(void *context) { (void)context; return dict_write_cstring(s_sync_iterator, MESSAGE_KEY_message, s_sync_wire) == DICT_OK; }
-static bool sync_send_adapter(void *context) { (void)context; return app_message_outbox_send() == APP_MSG_OK; }
+static bool sync_send_adapter(void *context) { (void)context; AppMessageResult r=app_message_outbox_send(); APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_SEND send=%d bytes=%u",r,(unsigned)strlen(s_sync_wire)); return r == APP_MSG_OK; }
 static bool sync_timer_adapter(uint32_t seconds, void *context) {
   (void)context;
   if (s_sync_ack_timer) return true;
@@ -468,26 +468,27 @@ static bool save_state(void) {
   sync.pending_record = s_state.pending_record; sync.pending_valid = s_state.pending_valid;
   sync.completion_blocked = s_state.completion_blocked; sync.selected_reps = s_state.selected_reps;
   PersistenceResult result = persistence_save(&s_persistence_adapter, sizeof core, &core, sizeof sync, &sync, NULL);
-  APP_LOG(APP_LOG_LEVEL_INFO, "persist transaction result=%d core=%u sync=%u q=%u", result,
+  APP_LOG(APP_LOG_LEVEL_INFO, "SYNC_RECORD_COMMITTED generation=%lu result=%d core=%u sync=%u q=%u", (unsigned long)persistence_last_generation(), result,
           (unsigned)sizeof(core), (unsigned)sizeof(sync), (unsigned)sync.outbox.count);
   s_persistence_failed = result != PERSIST_OK;
   if (s_persistence_failed) APP_LOG(APP_LOG_LEVEL_ERROR, "state persistence failed");
   return !s_persistence_failed;
 }
 
-static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)result; (void)ctx; s_sync_ready = false; s_sync_in_flight = false; sync_adapter_transport(&s_sync_adapter, false); }
+static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)ctx; APP_LOG(APP_LOG_LEVEL_ERROR,"SYNC_SEND_FAILED code=%d retry=%d",result,s_sync_adapter.machine.retry_index); s_sync_ready = false; s_sync_in_flight = false; sync_adapter_transport(&s_sync_adapter, false); }
 static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; }
 static void sync_received(DictionaryIterator *i, void *ctx) {
   (void)ctx; Tuple *id = dict_find(i, MESSAGE_KEY_ack);
   if (!id) return;
   SyncRecord *r = (SyncRecord *)sync_queue_peek(&s_state.outbox);
+  APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_ACK_RECEIVED id=%lu head=%lu matched=%d",(unsigned long)id->value->uint32,(unsigned long)(r?r->id:0),r&&id->value->uint32==r->id);
   if (r && id->value->uint32 == r->id && sync_adapter_ack(&s_sync_adapter, r->id)) {
     uint32_t acknowledged_id = id->value->uint32;
     SyncPushResult result = workout_completion_handle_ack(&s_state, acknowledged_id);
     s_sync_in_flight = false;
     if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { send_oldest(); resume_deferred_query(); }
     else if (result == SYNC_PUSH_FULL || result == SYNC_PUSH_CONFLICT) s_state.completion_blocked = 1;
-    save_state(); update_display();
+    bool saved=save_state(); APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_ACK_COMMITTED id=%lu promotion=%d q=%u pending=%u persistence=%d",(unsigned long)acknowledged_id,result,(unsigned)s_state.outbox.count,(unsigned)s_state.pending_valid,saved); update_display();
   }
 }
 static void query_received(DictionaryIterator *i) {
@@ -1032,6 +1033,7 @@ static void complete_set(void) {
       uint8_t deload_mask=0; for (uint8_t e=0;e<5;e++) if (s_state.deload_pending[e]) deload_mask |= (uint8_t)(1u << e);
       uint16_t snapshot[3]; for (uint8_t e=0;e<3;e++) snapshot[e]=(uint16_t)s_state.active_weights[e];
       if (!sync_completion_build_record(&record, record.id, s_state.active_workout, s_state.last_completed, snapshot, s_state.work_reps, sets, deload_mask)) { memcpy(s_state.weights, weights_before, sizeof weights_before); memcpy(s_state.failure_streaks, streaks_before, sizeof streaks_before); memcpy(s_state.deload_pending, pending_before, sizeof pending_before); memcpy(s_state.failure_reviewed, failure_reviewed_before, sizeof failure_reviewed_before); memcpy(s_state.plateau_reviewed, plateau_reviewed_before, sizeof plateau_reviewed_before); memcpy(s_state.gap_reviewed, gap_reviewed_before, sizeof gap_reviewed_before); s_state.active=active_before; s_state.exercise_index=exercise_before; s_state.set_index=set_before; s_state.next_workout=next_workout_before; s_state.last_completed=last_completed_before; s_state.completion_blocked=1; s_state.pending_valid=pending_valid_before; s_state.pending_record=pending_record_before; save_state(); snprintf(s_feedback,sizeof s_feedback,"Sync Required"); update_display(); return; }
+      APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_RECORD_CREATED id=%lu workout=%s timestamp=%ld reps=%u q=%u pending=%u",(unsigned long)record.id,workout_name(s_state.active_workout),(long)s_state.last_completed,(unsigned)record.rep_count,(unsigned)s_state.outbox.count,(unsigned)s_state.pending_valid);
       SyncPushResult result = sync_queue_push_result(&s_state.outbox, &record);
       if (result == SYNC_PUSH_FULL) { s_state.pending_record = record; s_state.pending_valid = 1; snprintf(s_feedback, sizeof s_feedback, "Sync Required"); }
       else if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { save_state(); send_oldest(); }
