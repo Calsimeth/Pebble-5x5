@@ -146,9 +146,15 @@ static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static AppTimer *s_final_set_timer;
+static AppTimer *s_back_timer;
+static bool s_back_down;
+static bool s_back_long_fired;
 static FinalSetTransition s_final_transition;
 static bool s_final_set_advance_authorized;
 static void final_set_advance(void *context);
+static void back_raw_down(ClickRecognizerRef recognizer, void *context);
+static void back_raw_up(ClickRecognizerRef recognizer, void *context);
+static void back_long_timer(void *context);
 static const uint32_t FINAL_SET_TRANSITION_MS = 2000;
 static const uint32_t REST_DURATIONS[] = {800, 200, 800, 200, 800};
 static const VibePattern REST_COMPLETE_PATTERN = { .durations = REST_DURATIONS, .num_segments = 5 };
@@ -1224,6 +1230,26 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
+static void back_long_timer(void *context) {
+  (void)context; s_back_timer = NULL;
+  if (s_back_down && !s_back_long_fired) { s_back_long_fired = true; back_long_click(NULL, NULL); }
+}
+
+static void back_raw_down(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  if (s_back_down) return;
+  s_back_down = true; s_back_long_fired = false;
+  s_back_timer = app_timer_register(1000, back_long_timer, NULL);
+}
+
+static void back_raw_up(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  if (!s_back_down) return;
+  if (s_back_timer) { app_timer_cancel(s_back_timer); s_back_timer = NULL; }
+  if (!s_back_long_fired) back_click(NULL, NULL);
+  s_back_down = false; s_back_long_fired = false;
+}
+
 static void back_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
@@ -1256,8 +1282,7 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
   window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
-  window_single_click_subscribe(BUTTON_ID_BACK, back_click);
-  window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, NULL);
+  window_raw_click_subscribe(BUTTON_ID_BACK, back_raw_down, back_raw_up, NULL);
 }
 
 static void window_load(Window *window) {
@@ -1332,7 +1357,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); save_state(); query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
+static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); save_state(); query_cancel(); stop_rest_services(); if (s_back_timer) app_timer_cancel(s_back_timer); s_back_timer = NULL; s_back_down = false; s_back_long_fired = false; if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();
