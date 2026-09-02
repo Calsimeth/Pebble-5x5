@@ -11,3 +11,4 @@ for test in tests/test_persistence_transaction.c tests/test_persistence_workouts
 done
 node tests/test_sync.js
 sh tests/verify_fixtures.sh
+sh tests/test_screen_transitions.sh

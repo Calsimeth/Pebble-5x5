@@ -1075,7 +1075,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     else { s_progress_exercise=0; s_progress_page=0; update_display(); } return;
   }
   if (s_screen == SCREEN_PROGRESS_PICKER) { s_screen=SCREEN_PROGRESS_GRAPH; s_progress_page=0; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); update_display(); return; }
-  if (s_screen == SCREEN_WORKOUT_SELECT) { s_state.next_workout = s_selected_workout; s_screen = SCREEN_WORKOUT; }
+  if (s_screen == SCREEN_WORKOUT_SELECT) { s_state.next_workout = s_selected_workout; s_screen = SCREEN_WORKOUT; update_display(); return; }
   if (s_plateau) { s_state.plateau_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
   if (s_deload) {
     s_state.weights[s_setup_item] = s_deload_weight;
