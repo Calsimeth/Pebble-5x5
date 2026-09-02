@@ -1165,7 +1165,7 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
     else if (s_state.inventory_counts[s_plate_index] < 2) {
       s_state.inventory_counts[s_plate_index]++;
     }
-    save_state(); update_display(); return;
+    APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_SETUP_MUTATION weights=%u plates=%u",(unsigned)s_state.weights[s_weight_index],(unsigned)(s_setup_mode==SETUP_PLATES?s_state.inventory_counts[s_plate_index]:0)); save_state(); update_display(); return;
   }
   if (s_state.active && !s_confirm_abandon && !s_state.warmup_active) {
     s_selected_reps = workout_view_rep_up(s_selected_reps); s_state.selected_reps = s_selected_reps; save_state(); update_display();
@@ -1204,7 +1204,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   }
   { PlateInventory inventory = current_inventory(); bool changed = false;
     for (size_t n = 0; n < 5; n++) { Weight old = s_state.weights[n]; s_state.weights[n] = normalize_weight_down(old, &inventory); if (old != s_state.weights[n]) { changed = true; s_state.failure_streaks[n] = 0; } }
-    save_state();
+    APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_SETUP_MUTATION weights=%u plates=%u",(unsigned)s_state.weights[s_weight_index],(unsigned)(s_setup_mode==SETUP_PLATES?s_state.inventory_counts[s_plate_index]:0)); save_state();
     s_weights_adjusted = changed;
   }
   update_display();
@@ -1328,7 +1328,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
+static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); save_state(); query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();
