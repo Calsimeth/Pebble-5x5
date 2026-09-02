@@ -15,3 +15,4 @@ bool progress_chunk_add(ProgressAssembly *a,uint16_t q,uint8_t exercise,uint8_t 
 }
 bool progress_assembly_complete(const ProgressAssembly *a){return a&&a->received==a->count;}
 int graph_coordinate(int32_t v,int32_t min,int32_t max,int h){if(h<=0)return 0;if(max<=min)return h/2;if(v<=min)return h-1;if(v>=max)return 0;return (int)(((int64_t)(max-v)*(h-1))/(max-min));}
+int graph_x_coordinate(uint8_t index,uint8_t count,int width){if(width<=0||!count||index>=count)return 0;return count==1?width/2:(int)((int64_t)index*(width-1)/(count-1));}
