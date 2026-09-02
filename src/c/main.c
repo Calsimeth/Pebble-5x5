@@ -1215,7 +1215,12 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   if (s_deload) { s_deload = false; s_deload_adjusting = false; update_display(); return; }
   if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
-    back_click(recognizer, context);
+    /* Long-Back is the deliberate, app-controlled abandonment action. */
+    if (s_screen == SCREEN_WORKOUT) {
+      if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; }
+      final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false;
+      s_confirm_abandon = true; save_state(); update_display();
+    }
   }
 }
 
@@ -1238,12 +1243,11 @@ static void back_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY) { query_cancel(); show_home(); return; }
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
   if (s_state.active) {
-    if (s_confirm_abandon) { s_confirm_abandon = false; save_state(); update_display(); return; }
+    /* Short Back is navigation, never abandonment. Stop an in-flight visual
+       transition so a callback cannot advance after returning Home. */
     if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; }
     final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false;
-    if (s_state.rest_active) clear_rest();
-    clear_warmup(); s_state.completion_blocked = 0; s_state.selected_reps = 5; s_selected_reps = 5;
-    s_confirm_abandon = true; save_state(); update_display(); return;
+    s_confirm_abandon = false; save_state(); show_home(); return;
   }
   show_home();
 }
