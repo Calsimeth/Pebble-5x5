@@ -286,6 +286,7 @@ static void query_cancel(void) { if(s_query_timer){app_timer_cancel(s_query_time
 static void history_progress_draw(Layer *layer, GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_stroke_color(ctx,palette_primary_text());
   graphics_context_set_text_color(ctx,GColorWhite); graphics_context_set_fill_color(ctx,palette_accent());
+  if(s_screen==SCREEN_HISTORY) APP_LOG(APP_LOG_LEVEL_INFO,"CALENDAR_RENDER %s mask=%lu",(s_calendar_valid&&s_calendar.mask)?"populated":"No History",(unsigned long)(s_calendar_valid?s_calendar.mask:0));
   if(s_screen==SCREEN_HISTORY && s_calendar_valid && s_calendar.mask) {
     graphics_draw_text(ctx,"History",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     struct tm tm={0}; tm.tm_year=s_calendar_year-1900;tm.tm_mon=s_calendar_month-1;tm.tm_mday=1; mktime(&tm); int first=tm.tm_wday;
@@ -317,7 +318,10 @@ static void query_send(const char *type) {
   dict_write_cstring(it,MESSAGE_KEY_type,type); dict_write_uint16(it,MESSAGE_KEY_id,s_query_id);
   if (type[0]=='c') { dict_write_uint16(it,MESSAGE_KEY_year,s_calendar_year); dict_write_uint8(it,MESSAGE_KEY_month,s_calendar_month); }
   else { dict_write_uint8(it,MESSAGE_KEY_exercise,s_progress_exercise); dict_write_uint8(it,MESSAGE_KEY_page,s_progress_page); }
-  s_query_connected=app_message_outbox_send()==APP_MSG_OK;
+  AppMessageResult query_result=app_message_outbox_send();
+  s_query_connected=query_result==APP_MSG_OK;
+  if(type[0]=='c') APP_LOG(APP_LOG_LEVEL_INFO,"CALENDAR_REQUEST id=%u year=%u month=%u send=%d",s_query_id,s_calendar_year,s_calendar_month,query_result);
+  else APP_LOG(APP_LOG_LEVEL_INFO,"PROGRESS_REQUEST id=%u exercise=%u page=%u send=%d",s_query_id,s_progress_exercise,s_progress_page,query_result);
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(s_query_connected && type[0]=='p'){ProgressPoint fixture_points[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_assembly_reset(&s_progress_data);progress_chunk_add(&s_progress_data,s_query_id,s_progress_exercise,s_progress_page,1,0,1,5,fixture_points);query_controller_response(&s_query_controller,true,true);update_display();return;}
 #endif
@@ -493,7 +497,7 @@ static void sync_received(DictionaryIterator *i, void *ctx) {
 }
 static void query_received(DictionaryIterator *i) {
   Tuple *c=dict_find(i,MESSAGE_KEY_calendar_id), *p=dict_find(i,MESSAGE_KEY_progress_id);
-  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask),*a=dict_find(i,MESSAGE_KEY_calendar_mask_a),*b=dict_find(i,MESSAGE_KEY_calendar_mask_b); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0,a?a->value->uint32:(x?x->value->uint32:0),b?b->value->uint32:0}; if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){s_calendar=r;s_calendar_valid=true;s_query_connected=true;query_controller_response(&s_query_controller,true,true);if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}send_oldest();update_display();} return; }
+  if (c) { Tuple *y=dict_find(i,MESSAGE_KEY_calendar_year),*m=dict_find(i,MESSAGE_KEY_calendar_month),*d=dict_find(i,MESSAGE_KEY_calendar_days),*x=dict_find(i,MESSAGE_KEY_calendar_mask),*a=dict_find(i,MESSAGE_KEY_calendar_mask_a),*b=dict_find(i,MESSAGE_KEY_calendar_mask_b); CalendarResponse r={c->value->uint16,y?y->value->uint16:0,m?m->value->uint8:0,d?d->value->uint8:0,x?x->value->uint32:0,a?a->value->uint32:(x?x->value->uint32:0),b?b->value->uint32:0}; APP_LOG(APP_LOG_LEVEL_INFO,"CALENDAR_RESPONSE id=%u year=%u month=%u days=%u mask=%lu a=%lu b=%lu",r.request_id,r.year,r.month,r.days,(unsigned long)r.mask,(unsigned long)r.mask_a,(unsigned long)r.mask_b); if(calendar_response_valid(&r,s_query_id,s_calendar_year,s_calendar_month)){APP_LOG(APP_LOG_LEVEL_INFO,"CALENDAR_ACCEPTED expected_id=%u year=%u month=%u",s_query_id,s_calendar_year,s_calendar_month);s_calendar=r;s_calendar_valid=true;s_query_connected=true;query_controller_response(&s_query_controller,true,true);if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}send_oldest();update_display();} else APP_LOG(APP_LOG_LEVEL_INFO,"CALENDAR_REJECTED expected_id=%u year=%u month=%u reason=validation",s_query_id,s_calendar_year,s_calendar_month); return; }
   if (p) { Tuple *ex=dict_find(i,MESSAGE_KEY_progress_exercise),*pg=dict_find(i,MESSAGE_KEY_progress_page),*tt=dict_find(i,MESSAGE_KEY_progress_total),*ix=dict_find(i,MESSAGE_KEY_progress_chunk_index),*cc=dict_find(i,MESSAGE_KEY_progress_chunk_count),*pc=dict_find(i,MESSAGE_KEY_progress_point_count); ProgressPoint pts[5];uint8_t n=pc?pc->value->uint8:0;for(uint8_t z=0;z<n&&z<5;z++){Tuple *t=dict_find(i,MESSAGE_KEY_progress_t0+z),*w=dict_find(i,MESSAGE_KEY_progress_w0+z);if(!t||!w){n=6;break;}pts[z]=(ProgressPoint){t->value->int32,w->value->uint16};}if(ex&&pg&&tt&&ix&&cc&&n<=5&&progress_chunk_add(&s_progress_data,p->value->uint16,ex->value->uint8,pg->value->uint8,tt->value->uint8,ix->value->uint8,cc->value->uint8,n,pts)){if(progress_assembly_complete(&s_progress_data)){s_query_connected=true;query_controller_response(&s_query_controller,true,true);if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}send_oldest();update_display();}} }
 }
 static void inbox_received(DictionaryIterator *i, void *ctx) { sync_received(i,ctx); query_received(i); }
