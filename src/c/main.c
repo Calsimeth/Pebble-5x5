@@ -1254,8 +1254,8 @@ static void back_click(ClickRecognizerRef recognizer, void *context) {
 
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_REPEAT_INTERVAL_MS, up_click);
-  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_REPEAT_INTERVAL_MS, down_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
   window_single_click_subscribe(BUTTON_ID_BACK, back_click);
   window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, NULL);
 }
