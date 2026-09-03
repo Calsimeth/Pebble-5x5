@@ -1252,6 +1252,9 @@ static void back_raw_up(ClickRecognizerRef recognizer, void *context) {
 
 static void back_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
+  /* The raw observer supplies timing; this consuming recognizer may still
+     arrive after a long press. Consume that release without navigating. */
+  if (s_back_long_fired) { s_back_long_fired = false; return; }
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(!s_fixture_selector && (s_screen==SCREEN_HISTORY || s_screen==SCREEN_PROGRESS_GRAPH)){s_fixture_selector=true;update_display();return;}
 #endif
@@ -1282,6 +1285,9 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
   window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
+  /* single_click is the consuming registration; raw_click only supplies
+     press/release timing for the explicit long-press controller. */
+  window_single_click_subscribe(BUTTON_ID_BACK, back_click);
   window_raw_click_subscribe(BUTTON_ID_BACK, back_raw_down, back_raw_up, NULL);
 }
 
