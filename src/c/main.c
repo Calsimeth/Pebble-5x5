@@ -9,7 +9,6 @@
 #include "sync_adapter.h"
 #include "sync_completion.h"
 #include "workout_completion.h"
-#include "back_adapter.h"
 #include "history_progress.h"
 #include "query_controller.h"
 #include "workout_view.h"
@@ -313,9 +312,7 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
 }
 static void back_click(ClickRecognizerRef recognizer, void *context);
 static void back_navigation(ClickRecognizerRef recognizer, void *context);
-static void back_abandon(ClickRecognizerRef recognizer, void *context);
-static void back_long_release(ClickRecognizerRef recognizer, void *context);
-static BackAdapter s_back_adapter;
+static void back_double(ClickRecognizerRef recognizer, void *context);
 static void query_send(const char *type) {
   DictionaryIterator *it;
   if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); return; }
@@ -1215,12 +1212,12 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   update_display();
 }
 
-static void back_abandon(ClickRecognizerRef recognizer, void *context) {
+static void back_double(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_SETUP) { back_click(recognizer, context); return; }
   if (s_deload) { s_deload = false; s_deload_adjusting = false; update_display(); return; }
   if (s_setup) { s_setup = false; update_display(); return; }
   if (s_state.active) {
-    /* Long-Back is the deliberate, app-controlled abandonment action. */
+    /* Double-Back is the deliberate, app-controlled abandonment action. */
     if (s_screen == SCREEN_WORKOUT) {
       if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; }
       final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false;
@@ -1229,21 +1226,13 @@ static void back_abandon(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
-static void back_action_short(void *context) { (void)context; back_navigation(NULL, NULL); }
-static void back_action_long(void *context) { (void)context; back_abandon(NULL, NULL); }
-static void back_action_release(void *context) { (void)context; }
-static void back_long_click(ClickRecognizerRef recognizer, void *context) {
-  (void)recognizer; (void)context; APP_LOG(APP_LOG_LEVEL_INFO, "BACK_LONG");
-  back_adapter_long(&s_back_adapter);
-}
-static void back_long_release(ClickRecognizerRef recognizer, void *context) {
-  (void)recognizer; (void)context; APP_LOG(APP_LOG_LEVEL_INFO, "BACK_LONG_RELEASE");
-  back_adapter_long_release(&s_back_adapter);
-}
-
 static void back_click(ClickRecognizerRef recognizer, void *context) {
-  (void)recognizer; (void)context; APP_LOG(APP_LOG_LEVEL_INFO, "BACK_SINGLE");
-  back_adapter_single(&s_back_adapter);
+  (void)context;
+  if (click_number_of_clicks_counted(recognizer) >= 2 && s_state.active) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "BACK_DOUBLE"); back_double(recognizer, context);
+  } else {
+    APP_LOG(APP_LOG_LEVEL_INFO, "BACK_SINGLE"); back_navigation(recognizer, context);
+  }
 }
 
 static void back_navigation(ClickRecognizerRef recognizer, void *context) {
@@ -1265,6 +1254,7 @@ static void back_navigation(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY) { query_cancel(); show_home(); return; }
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
   if (s_state.active) {
+    if (s_confirm_abandon) { s_confirm_abandon = false; save_state(); update_display(); return; }
     /* Short Back is navigation, never abandonment. Stop an in-flight visual
        transition so a callback cannot advance after returning Home. */
     if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; }
@@ -1278,10 +1268,8 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
   window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
-  /* single_click is the consuming registration; raw_click only supplies
-     press/release timing for the explicit long-press controller. */
-  window_single_click_subscribe(BUTTON_ID_BACK, back_click);
-  window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, back_long_release);
+  /* Wait for the complete one/two-click sequence before routing it. */
+  window_multi_click_subscribe(BUTTON_ID_BACK, 1, 2, 350, true, back_click);
 }
 
 static void window_load(Window *window) {
@@ -1329,7 +1317,6 @@ static void init(void) {
   query_controller_init(&s_query_controller);
   load_state();
   final_set_transition_init(&s_final_transition, final_set_log, NULL);
-  back_adapter_init(&s_back_adapter, back_action_short, back_action_long, back_action_release, NULL);
   sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
       sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,
       sync_cancel_adapter, NULL);
