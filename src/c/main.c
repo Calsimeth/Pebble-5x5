@@ -412,7 +412,7 @@ static const char *home_label(uint8_t item) {
 
 static uint8_t home_item_count(void) { return s_state.active ? 5 : 4; }
 
-static void show_home(void) { s_screen = SCREEN_HOME; s_setup = false; s_show_plates = false; update_display(); }
+static void show_home(void) { s_screen = SCREEN_HOME; s_setup = false; s_show_plates = false; s_home_item = 0; update_display(); }
 static void show_workout(void) { s_screen = SCREEN_WORKOUT; s_setup = false; update_display(); }
 
 static void stop_rest_services(void) {
@@ -1122,7 +1122,7 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     clear_rest();
     s_confirm_abandon = false;
     save_state();
-    update_display();
+    show_home();
   } else if (s_state.rest_active) {
     clear_rest();
     save_state();
@@ -1259,7 +1259,6 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
   window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
-  /* Wait for the complete one/two-click sequence before routing it. */
   window_single_click_subscribe(BUTTON_ID_BACK, back_click);
 }
 
