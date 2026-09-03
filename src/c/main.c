@@ -951,7 +951,12 @@ static void update_display(void) {
 }
 
 static void complete_set(void) {
-  if (s_state.completion_blocked) { snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
+  APP_LOG(APP_LOG_LEVEL_INFO, "SET_COMPLETE screen=%d workout=%u e=%u set=%u reps=%u warm=%u rest=%u saved=%u blocked=%u final=%u/%u",
+          s_screen, s_state.active_workout, s_state.exercise_index, s_state.set_index,
+          s_selected_reps, s_state.warmup_active, s_state.rest_active, s_saved,
+          s_state.completion_blocked, final_set_transition_visible(&s_final_transition),
+          s_final_set_advance_authorized);
+  if (s_state.completion_blocked) { APP_LOG(APP_LOG_LEVEL_INFO, "SET_COMPLETE blocked"); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
   if (s_state.warmup_active) {
     if (++s_state.warmup_index < s_state.warmup_plan.count) { save_state(); update_display(); return; }
     clear_warmup(); save_state();
@@ -1068,6 +1073,11 @@ static void final_set_advance(void *context) {
 }
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "SELECT screen=%d workout=%u e=%u set=%u reps=%u warm=%u rest=%u saved=%u blocked=%u final=%u/%u",
+          s_screen, s_state.active_workout, s_state.exercise_index, s_state.set_index,
+          s_selected_reps, s_state.warmup_active, s_state.rest_active, s_saved,
+          s_state.completion_blocked, final_set_transition_visible(&s_final_transition),
+          s_final_set_advance_authorized);
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(s_fixture_selector){s_fixture_selector=false;apply_visual_fixture();update_display();return;}
 #endif
@@ -1136,6 +1146,13 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     deload_workout_order(s_state.next_workout == WORKOUT_B, indices);
     for (uint8_t n = 0; n < 3; n++) { begin_deload(indices[n]); if (s_deload) return; }
     s_state.active_workout = s_state.next_workout;
+    /* These are UI/session transients, not properties of the next workout.
+     * Clear them before the first working-set Select so a prior completed
+     * workout cannot consume it as a stale acknowledgement. */
+    s_saved = false;
+    s_state.completion_blocked = 0;
+    s_final_set_advance_authorized = false;
+    final_set_transition_cancel(&s_final_transition);
     s_state.exercise_index = 0;
     s_state.set_index = 0;
     for (uint8_t n = 0; n < 3; n++) {
