@@ -9,6 +9,7 @@
 #include "sync_adapter.h"
 #include "sync_completion.h"
 #include "workout_completion.h"
+#include "back_gesture.h"
 #include "history_progress.h"
 #include "query_controller.h"
 #include "workout_view.h"
@@ -1246,8 +1247,9 @@ static void back_raw_up(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
   if (!s_back_down) return;
   if (s_back_timer) { app_timer_cancel(s_back_timer); s_back_timer = NULL; }
-  if (!s_back_long_fired) back_click(NULL, NULL);
-  s_back_down = false; s_back_long_fired = false;
+  /* The consuming single-click recognizer decides short-vs-long. Keep the
+     long marker until that callback consumes the trailing release. */
+  s_back_down = false;
 }
 
 static void back_click(ClickRecognizerRef recognizer, void *context) {
