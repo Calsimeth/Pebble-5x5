@@ -1269,7 +1269,7 @@ static void click_config_provider(void *context) {
   window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
   /* Wait for the complete one/two-click sequence before routing it. */
-  window_multi_click_subscribe(BUTTON_ID_BACK, 1, 2, 350, true, back_click);
+  window_multi_click_subscribe(BUTTON_ID_BACK, 1, 2, 600, true, back_click);
 }
 
 static void window_load(Window *window) {
