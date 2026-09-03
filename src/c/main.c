@@ -9,7 +9,7 @@
 #include "sync_adapter.h"
 #include "sync_completion.h"
 #include "workout_completion.h"
-#include "back_gesture.h"
+#include "back_adapter.h"
 #include "history_progress.h"
 #include "query_controller.h"
 #include "workout_view.h"
@@ -147,15 +147,9 @@ static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static AppTimer *s_final_set_timer;
-static AppTimer *s_back_timer;
-static bool s_back_down;
-static bool s_back_long_fired;
 static FinalSetTransition s_final_transition;
 static bool s_final_set_advance_authorized;
 static void final_set_advance(void *context);
-static void back_raw_down(ClickRecognizerRef recognizer, void *context);
-static void back_raw_up(ClickRecognizerRef recognizer, void *context);
-static void back_long_timer(void *context);
 static const uint32_t FINAL_SET_TRANSITION_MS = 2000;
 static const uint32_t REST_DURATIONS[] = {800, 200, 800, 200, 800};
 static const VibePattern REST_COMPLETE_PATTERN = { .durations = REST_DURATIONS, .num_segments = 5 };
@@ -318,6 +312,10 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
   }
 }
 static void back_click(ClickRecognizerRef recognizer, void *context);
+static void back_navigation(ClickRecognizerRef recognizer, void *context);
+static void back_abandon(ClickRecognizerRef recognizer, void *context);
+static void back_long_release(ClickRecognizerRef recognizer, void *context);
+static BackAdapter s_back_adapter;
 static void query_send(const char *type) {
   DictionaryIterator *it;
   if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); return; }
@@ -1217,7 +1215,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   update_display();
 }
 
-static void back_long_click(ClickRecognizerRef recognizer, void *context) {
+static void back_abandon(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_SETUP) { back_click(recognizer, context); return; }
   if (s_deload) { s_deload = false; s_deload_adjusting = false; update_display(); return; }
   if (s_setup) { s_setup = false; update_display(); return; }
@@ -1231,32 +1229,25 @@ static void back_long_click(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
-static void back_long_timer(void *context) {
-  (void)context; s_back_timer = NULL;
-  if (s_back_down && !s_back_long_fired) { s_back_long_fired = true; back_long_click(NULL, NULL); }
+static void back_action_short(void *context) { (void)context; back_navigation(NULL, NULL); }
+static void back_action_long(void *context) { (void)context; back_abandon(NULL, NULL); }
+static void back_action_release(void *context) { (void)context; }
+static void back_long_click(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context; APP_LOG(APP_LOG_LEVEL_INFO, "BACK_LONG");
+  back_adapter_long(&s_back_adapter);
 }
-
-static void back_raw_down(ClickRecognizerRef recognizer, void *context) {
-  (void)recognizer; (void)context;
-  if (s_back_down) return;
-  s_back_down = true; s_back_long_fired = false;
-  s_back_timer = app_timer_register(1000, back_long_timer, NULL);
-}
-
-static void back_raw_up(ClickRecognizerRef recognizer, void *context) {
-  (void)recognizer; (void)context;
-  if (!s_back_down) return;
-  if (s_back_timer) { app_timer_cancel(s_back_timer); s_back_timer = NULL; }
-  /* The consuming single-click recognizer decides short-vs-long. Keep the
-     long marker until that callback consumes the trailing release. */
-  s_back_down = false;
+static void back_long_release(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context; APP_LOG(APP_LOG_LEVEL_INFO, "BACK_LONG_RELEASE");
+  back_adapter_long_release(&s_back_adapter);
 }
 
 static void back_click(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context; APP_LOG(APP_LOG_LEVEL_INFO, "BACK_SINGLE");
+  back_adapter_single(&s_back_adapter);
+}
+
+static void back_navigation(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
-  /* The raw observer supplies timing; this consuming recognizer may still
-     arrive after a long press. Consume that release without navigating. */
-  if (s_back_long_fired) { s_back_long_fired = false; return; }
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(!s_fixture_selector && (s_screen==SCREEN_HISTORY || s_screen==SCREEN_PROGRESS_GRAPH)){s_fixture_selector=true;update_display();return;}
 #endif
@@ -1290,7 +1281,7 @@ static void click_config_provider(void *context) {
   /* single_click is the consuming registration; raw_click only supplies
      press/release timing for the explicit long-press controller. */
   window_single_click_subscribe(BUTTON_ID_BACK, back_click);
-  window_raw_click_subscribe(BUTTON_ID_BACK, back_raw_down, back_raw_up, NULL);
+  window_long_click_subscribe(BUTTON_ID_BACK, 1000, back_long_click, back_long_release);
 }
 
 static void window_load(Window *window) {
@@ -1338,6 +1329,7 @@ static void init(void) {
   query_controller_init(&s_query_controller);
   load_state();
   final_set_transition_init(&s_final_transition, final_set_log, NULL);
+  back_adapter_init(&s_back_adapter, back_action_short, back_action_long, back_action_release, NULL);
   sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
       sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,
       sync_cancel_adapter, NULL);
@@ -1365,7 +1357,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); save_state(); query_cancel(); stop_rest_services(); if (s_back_timer) app_timer_cancel(s_back_timer); s_back_timer = NULL; s_back_down = false; s_back_long_fired = false; if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
+static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); save_state(); query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();
