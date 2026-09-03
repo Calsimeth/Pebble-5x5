@@ -312,7 +312,7 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
 }
 static void back_click(ClickRecognizerRef recognizer, void *context);
 static void back_navigation(ClickRecognizerRef recognizer, void *context);
-static void back_double(ClickRecognizerRef recognizer, void *context);
+static void open_abandon_confirmation(void);
 static void query_send(const char *type) {
   DictionaryIterator *it;
   if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); return; }
@@ -335,7 +335,7 @@ static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_
 static void query_timeout(void *ctx){(void)ctx;s_query_timer=NULL;query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest();update_display();}
 
 static void workout_layer_update(Layer *layer, GContext *ctx) {
-  if (!s_state.active || s_state.warmup_active || s_screen != SCREEN_WORKOUT) return;
+  if (!s_state.active || (s_state.warmup_active && !s_confirm_abandon) || s_screen != SCREEN_WORKOUT) return;
   GRect b = layer_get_bounds(layer); uint8_t sets = WORKOUTS[s_state.active_workout][s_state.exercise_index].sets;
   WorkoutCircleLayout circles = workout_circle_layout(b.size.w, b.size.h, sets);
   int16_t circle_diameter = circles.diameter, circle_gap = circles.gap, circle_x = circles.x;
@@ -404,10 +404,13 @@ static void set_workout_layer_visible(bool visible) {
 
 static const char *home_label(uint8_t item) {
   if (item == 0) return s_state.active ? "Continue" : "New Workout";
+  if (s_state.active) { if (item == 1) return "End Workout"; item--; }
   if (item == 1) return "Setup";
   if (item == 2) return "History";
   return "Progress";
 }
+
+static uint8_t home_item_count(void) { return s_state.active ? 5 : 4; }
 
 static void show_home(void) { s_screen = SCREEN_HOME; s_setup = false; s_show_plates = false; update_display(); }
 static void show_workout(void) { s_screen = SCREEN_WORKOUT; s_setup = false; update_display(); }
@@ -774,15 +777,17 @@ static void update_display(void) {
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(s_fixture_selector){text_layer_set_text(s_title_layer,"Visual Fixture");text_layer_set_text(s_exercise_layer,fixture_name());text_layer_set_text(s_hint_layer,"Up/Down choose Select");return;}
 #endif
-  set_workout_layer_visible(s_state.active && !s_state.warmup_active && s_screen == SCREEN_WORKOUT);
+  set_workout_layer_visible(s_state.active && (!s_state.warmup_active || s_confirm_abandon) && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
-    text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+    text_layer_set_font(s_exercise_layer, fonts_get_system_font(s_state.active ? FONT_KEY_GOTHIC_14_BOLD : FONT_KEY_GOTHIC_18_BOLD));
     text_layer_set_text(s_title_layer, "StrongLifts");
-    snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s\n%s%s\n%s%s",
-             s_home_item == 0 ? "> " : "  ", home_label(0),
-             s_home_item == 1 ? "> " : "  ", home_label(1),
-             s_home_item == 2 ? "> " : "  ", home_label(2),
-             s_home_item == 3 ? "> " : "  ", home_label(3));
+    if (s_state.active) snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
+             s_home_item == 0 ? "> " : "  ", home_label(0), s_home_item == 1 ? "> " : "  ", home_label(1),
+             s_home_item == 2 ? "> " : "  ", home_label(2), s_home_item == 3 ? "> " : "  ", home_label(3),
+             s_home_item == 4 ? "> " : "  ", home_label(4));
+    else snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s\n%s%s\n%s%s",
+             s_home_item == 0 ? "> " : "  ", home_label(0), s_home_item == 1 ? "> " : "  ", home_label(1),
+             s_home_item == 2 ? "> " : "  ", home_label(2), s_home_item == 3 ? "> " : "  ", home_label(3));
     text_layer_set_text(s_exercise_layer, s_exercise_text);
     snprintf(s_hint_text, sizeof s_hint_text, "Select: open");
     text_layer_set_text(s_hint_layer, s_hint_text);
@@ -1071,8 +1076,10 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
       if (s_state.active) { show_workout(); return; }
       s_selected_workout = s_state.next_workout; s_screen = SCREEN_WORKOUT_SELECT; update_display(); return;
     }
-    if (s_home_item == 1) { s_screen = SCREEN_SETUP; s_setup = true; s_setup_mode = SETUP_MENU; s_weight_index = 0; s_plate_index = 0; update_display(); return; }
-    s_screen = s_home_item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS_PICKER; s_query_connected=false;
+    if (s_state.active && s_home_item == 1) { open_abandon_confirmation(); return; }
+    uint8_t item = s_state.active ? (uint8_t)(s_home_item - 1) : s_home_item;
+    if (item == 1) { s_screen = SCREEN_SETUP; s_setup = true; s_setup_mode = SETUP_MENU; s_weight_index = 0; s_plate_index = 0; update_display(); return; }
+    s_screen = item == 2 ? SCREEN_HISTORY : SCREEN_PROGRESS_PICKER; s_query_connected=false;
     if (s_screen==SCREEN_HISTORY) { time_t now=time(NULL); struct tm *tm=localtime(&now); s_calendar_year=tm->tm_year+1900; s_calendar_month=tm->tm_mon+1; query_send("calendar_request"); }
     else { s_progress_exercise=0; s_progress_page=0; update_display(); } return;
   }
@@ -1178,7 +1185,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(s_fixture_selector){s_fixture_scenario=(s_fixture_scenario+1)%FIXTURE_COUNT;update_display();return;}
 #endif
-  if (s_screen == SCREEN_HOME) { if (s_home_item < 3) s_home_item++; update_display(); return; }
+  if (s_screen == SCREEN_HOME) { if (s_home_item + 1 < home_item_count()) s_home_item++; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (++s_calendar_month>12){s_calendar_month=1;s_calendar_year++;} query_send("calendar_request"); update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise<4) s_progress_exercise++; update_display(); return; }
@@ -1212,28 +1219,12 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   update_display();
 }
 
-static void back_double(ClickRecognizerRef recognizer, void *context) {
-  if (s_screen == SCREEN_SETUP) { back_click(recognizer, context); return; }
-  if (s_deload) { s_deload = false; s_deload_adjusting = false; update_display(); return; }
-  if (s_setup) { s_setup = false; update_display(); return; }
-  if (s_state.active) {
-    /* Double-Back is the deliberate, app-controlled abandonment action. */
-    if (s_screen == SCREEN_WORKOUT) {
-      if (s_final_set_timer) { app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; }
-      final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false;
-      s_confirm_abandon = true; save_state(); update_display();
-    }
-  }
+static void open_abandon_confirmation(void) {
+  if (!s_state.active) return;
+  s_screen = SCREEN_WORKOUT; s_confirm_abandon = true; save_state(); update_display();
 }
 
-static void back_click(ClickRecognizerRef recognizer, void *context) {
-  (void)context;
-  if (click_number_of_clicks_counted(recognizer) >= 2 && s_state.active) {
-    APP_LOG(APP_LOG_LEVEL_INFO, "BACK_DOUBLE"); back_double(recognizer, context);
-  } else {
-    APP_LOG(APP_LOG_LEVEL_INFO, "BACK_SINGLE"); back_navigation(recognizer, context);
-  }
-}
+static void back_click(ClickRecognizerRef recognizer, void *context) { APP_LOG(APP_LOG_LEVEL_INFO, "BACK_SINGLE"); back_navigation(recognizer, context); }
 
 static void back_navigation(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
@@ -1269,7 +1260,7 @@ static void click_config_provider(void *context) {
   window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
   /* Wait for the complete one/two-click sequence before routing it. */
-  window_multi_click_subscribe(BUTTON_ID_BACK, 1, 2, 600, true, back_click);
+  window_single_click_subscribe(BUTTON_ID_BACK, back_click);
 }
 
 static void window_load(Window *window) {
