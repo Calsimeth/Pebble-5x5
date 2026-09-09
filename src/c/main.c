@@ -156,6 +156,11 @@ static void final_set_advance(void *context);
 static const uint32_t FINAL_SET_TRANSITION_MS = 2000;
 static const uint32_t REST_DURATIONS[] = {800, 200, 800, 200, 800};
 static const VibePattern REST_COMPLETE_PATTERN = { .durations = REST_DURATIONS, .num_segments = 5 };
+
+static void cancel_adjustment_timer(void) {
+  s_adjustment_held = false;
+  if (s_adjustment_timer) { app_timer_cancel(s_adjustment_timer); s_adjustment_timer = NULL; }
+}
 static bool s_sync_ready;
 static uint16_t s_query_id;
 static int s_calendar_year, s_calendar_month;
@@ -416,7 +421,7 @@ static const char *home_label(uint8_t item) {
 
 static uint8_t home_item_count(void) { return s_state.active ? 5 : 4; }
 
-static void show_home(void) { s_screen = SCREEN_HOME; s_setup = false; s_show_plates = false; s_home_item = 0; update_display(); }
+static void show_home(void) { cancel_adjustment_timer(); s_screen = SCREEN_HOME; s_setup = false; s_show_plates = false; s_home_item = 0; update_display(); }
 static void show_workout(void) { s_screen = SCREEN_WORKOUT; s_setup = false; update_display(); }
 
 static void stop_rest_services(void) {
@@ -1253,7 +1258,8 @@ static bool adjustment_repeatable(void) {
 
 static void adjustment_timer_callback(void *context) {
   (void)context;
-  if (!s_adjustment_held) return;
+  s_adjustment_timer = NULL;
+  if (!s_adjustment_held || !(s_deload || (s_setup && (s_setup_mode == SETUP_WEIGHTS || s_setup_mode == SETUP_PLATES)))) { s_adjustment_held = false; return; }
   s_adjustment_event = "REPEAT";
   if (s_adjustment_button == BUTTON_ID_UP) up_click(NULL, NULL); else down_click(NULL, NULL);
   if (s_adjustment_held) s_adjustment_timer = app_timer_register(SETUP_REPEAT_INTERVAL_MS, adjustment_timer_callback, NULL);
@@ -1389,7 +1395,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); save_state(); query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
+static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); cancel_adjustment_timer(); save_state(); query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();
