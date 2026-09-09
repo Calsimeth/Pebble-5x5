@@ -146,6 +146,10 @@ static char s_exercise_text[64];
 static char s_hint_text[32];
 static AppTimer *s_rest_timer;
 static AppTimer *s_final_set_timer;
+static AppTimer *s_adjustment_timer;
+static uint8_t s_adjustment_button;
+static bool s_adjustment_held;
+static const char *s_adjustment_event = "PRESS";
 static FinalSetTransition s_final_transition;
 static bool s_final_set_advance_authorized;
 static void final_set_advance(void *context);
@@ -1187,7 +1191,7 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
   }
   if (s_setup) {
     if (s_setup_mode == SETUP_MENU) s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
-    else if (s_setup_mode == SETUP_WEIGHTS) { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_weight_index]; Weight next = next_achievable_total(old, &inventory); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); }
+    else if (s_setup_mode == SETUP_WEIGHTS) { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_up(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=UP event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); }
     else if (s_state.inventory_counts[s_plate_index] < 2) {
       s_state.inventory_counts[s_plate_index]++;
     }
@@ -1224,7 +1228,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   }
   if (s_setup_mode == SETUP_MENU) s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
   else if (s_setup_mode == SETUP_WEIGHTS) {
-    { PlateInventory inventory = current_inventory(); Weight old = s_state.weights[s_weight_index]; Weight next = previous_achievable_total(old, &inventory); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); }
+    { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_down(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=DOWN event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); }
   } else if (s_state.inventory_counts[s_plate_index] > 0) {
     s_state.inventory_counts[s_plate_index]--;
   }
@@ -1242,6 +1246,40 @@ static void open_abandon_confirmation(void) {
 }
 
 static void back_click(ClickRecognizerRef recognizer, void *context) { APP_LOG(APP_LOG_LEVEL_INFO, "BACK_SINGLE"); back_navigation(recognizer, context); }
+
+static bool adjustment_repeatable(void) {
+  return s_deload || (s_setup && (s_setup_mode == SETUP_WEIGHTS || s_setup_mode == SETUP_PLATES));
+}
+
+static void adjustment_timer_callback(void *context) {
+  (void)context;
+  if (!s_adjustment_held) return;
+  s_adjustment_event = "REPEAT";
+  if (s_adjustment_button == BUTTON_ID_UP) up_click(NULL, NULL); else down_click(NULL, NULL);
+  if (s_adjustment_held) s_adjustment_timer = app_timer_register(SETUP_REPEAT_INTERVAL_MS, adjustment_timer_callback, NULL);
+}
+
+static void adjustment_press(uint8_t button_id) {
+    if (s_adjustment_timer) { app_timer_cancel(s_adjustment_timer); s_adjustment_timer = NULL; }
+    s_adjustment_button = button_id;
+    s_adjustment_held = true;
+    s_adjustment_event = "PRESS";
+    if (button_id == BUTTON_ID_UP) up_click(NULL, NULL); else down_click(NULL, NULL);
+    if (adjustment_repeatable()) s_adjustment_timer = app_timer_register(SETUP_INITIAL_HOLD_DELAY_MS, adjustment_timer_callback, NULL);
+}
+
+static void adjustment_release(uint8_t button_id) {
+  if (button_id == s_adjustment_button) {
+    s_adjustment_held = false;
+    if (s_adjustment_timer) { app_timer_cancel(s_adjustment_timer); s_adjustment_timer = NULL; }
+    APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=%s event=RELEASE prior=%u result=%u", button_id == BUTTON_ID_UP ? "UP" : "DOWN", (unsigned)(s_setup && s_setup_mode == SETUP_WEIGHTS ? s_state.weights[s_weight_index] : 0), (unsigned)(s_setup && s_setup_mode == SETUP_WEIGHTS ? s_state.weights[s_weight_index] : 0));
+  }
+}
+
+static void up_press(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_press(BUTTON_ID_UP); }
+static void up_release(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_release(BUTTON_ID_UP); }
+static void down_press(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_press(BUTTON_ID_DOWN); }
+static void down_release(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_release(BUTTON_ID_DOWN); }
 
 static void back_navigation(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
@@ -1274,8 +1312,8 @@ static void back_navigation(ClickRecognizerRef recognizer, void *context) {
 
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_single_repeating_click_subscribe(BUTTON_ID_UP, SETUP_PEBBLE_REPEAT_INTERVAL_MS, up_click);
-  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETUP_PEBBLE_REPEAT_INTERVAL_MS, down_click);
+  window_raw_click_subscribe(BUTTON_ID_UP, up_press, up_release, NULL);
+  window_raw_click_subscribe(BUTTON_ID_DOWN, down_press, down_release, NULL);
   window_single_click_subscribe(BUTTON_ID_BACK, back_click);
 }
 
