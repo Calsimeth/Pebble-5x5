@@ -1265,27 +1265,38 @@ static void adjustment_timer_callback(void *context) {
   if (s_adjustment_held) s_adjustment_timer = app_timer_register(SETUP_REPEAT_INTERVAL_MS, adjustment_timer_callback, NULL);
 }
 
-static void adjustment_press(uint8_t button_id) {
+static void adjustment_apply(uint8_t button_id, const char *event) {
     if (s_adjustment_timer) { app_timer_cancel(s_adjustment_timer); s_adjustment_timer = NULL; }
     s_adjustment_button = button_id;
-    s_adjustment_held = true;
-    s_adjustment_event = "PRESS";
+    s_adjustment_event = event;
     if (button_id == BUTTON_ID_UP) up_click(NULL, NULL); else down_click(NULL, NULL);
-    if (adjustment_repeatable()) s_adjustment_timer = app_timer_register(SETUP_INITIAL_HOLD_DELAY_MS, adjustment_timer_callback, NULL);
 }
 
-static void adjustment_release(uint8_t button_id) {
+static void adjustment_short(uint8_t button_id) {
+  s_adjustment_held = false;
+  adjustment_apply(button_id, "SHORT");
+}
+
+static void adjustment_long_start(uint8_t button_id) {
+  s_adjustment_held = true;
+  adjustment_apply(button_id, "LONG_START");
+  if (adjustment_repeatable()) s_adjustment_timer = app_timer_register(SETUP_REPEAT_INTERVAL_MS, adjustment_timer_callback, NULL);
+}
+
+static void adjustment_long_release(uint8_t button_id) {
   if (button_id == s_adjustment_button) {
     s_adjustment_held = false;
     if (s_adjustment_timer) { app_timer_cancel(s_adjustment_timer); s_adjustment_timer = NULL; }
-    APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=%s event=RELEASE prior=%u result=%u", button_id == BUTTON_ID_UP ? "UP" : "DOWN", (unsigned)(s_setup && s_setup_mode == SETUP_WEIGHTS ? s_state.weights[s_weight_index] : 0), (unsigned)(s_setup && s_setup_mode == SETUP_WEIGHTS ? s_state.weights[s_weight_index] : 0));
+    APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=%s event=LONG_RELEASE prior=%u result=%u", button_id == BUTTON_ID_UP ? "UP" : "DOWN", (unsigned)(s_setup && s_setup_mode == SETUP_WEIGHTS ? s_state.weights[s_weight_index] : 0), (unsigned)(s_setup && s_setup_mode == SETUP_WEIGHTS ? s_state.weights[s_weight_index] : 0));
   }
 }
 
-static void up_press(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_press(BUTTON_ID_UP); }
-static void up_release(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_release(BUTTON_ID_UP); }
-static void down_press(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_press(BUTTON_ID_DOWN); }
-static void down_release(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_release(BUTTON_ID_DOWN); }
+static void up_short_click(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_short(BUTTON_ID_UP); }
+static void down_short_click(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_short(BUTTON_ID_DOWN); }
+static void up_long_start(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_long_start(BUTTON_ID_UP); }
+static void up_long_release(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_long_release(BUTTON_ID_UP); }
+static void down_long_start(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_long_start(BUTTON_ID_DOWN); }
+static void down_long_release(ClickRecognizerRef recognizer, void *context) { (void)recognizer; (void)context; adjustment_long_release(BUTTON_ID_DOWN); }
 
 static void back_navigation(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
@@ -1318,8 +1329,10 @@ static void back_navigation(ClickRecognizerRef recognizer, void *context) {
 
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_raw_click_subscribe(BUTTON_ID_UP, up_press, up_release, NULL);
-  window_raw_click_subscribe(BUTTON_ID_DOWN, down_press, down_release, NULL);
+  window_single_click_subscribe(BUTTON_ID_UP, up_short_click);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_short_click);
+  window_long_click_subscribe(BUTTON_ID_UP, SETUP_INITIAL_HOLD_DELAY_MS, up_long_start, up_long_release);
+  window_long_click_subscribe(BUTTON_ID_DOWN, SETUP_INITIAL_HOLD_DELAY_MS, down_long_start, down_long_release);
   window_single_click_subscribe(BUTTON_ID_BACK, back_click);
 }
 

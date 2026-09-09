@@ -13,3 +13,4 @@ node tests/test_sync.js
 sh tests/verify_fixtures.sh
 sh tests/test_screen_transitions.sh
 sh tests/test_back_navigation.sh
+sh tests/test_setup_registration.sh
