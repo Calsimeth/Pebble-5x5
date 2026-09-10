@@ -240,6 +240,7 @@ static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_L
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 1, 0, 1, 1, 1};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
 static bool save_state(void);
+static bool valid_advisory_state(void);
 static bool persistence_exists_adapter(uint32_t key, void *ctx) { (void)ctx; bool result = persist_exists((uint32_t)key); debug_diag_persist("EXISTS", key, 0, result); return result; }
 static int persistence_size_adapter(uint32_t key, void *ctx) { (void)ctx; int result = persist_get_size((uint32_t)key); debug_diag_persist("SIZE", key, 0, result); return result; }
 static int persistence_read_adapter(uint32_t key, void *data, size_t size, void *ctx) { (void)ctx; int result = persist_read_data((uint32_t)key, data, (size_t)size); debug_diag_persist("READ", key, (uint32_t)size, result); return result; }
@@ -509,6 +510,28 @@ static bool save_state(void) {
   return !s_persistence_failed;
 }
 
+static bool loaded_state_valid(const PersistedState *state) {
+  if (!state || state->schema_version != STORAGE_SCHEMA_VERSION || !workout_state_valid(state) ||
+      state->completion_blocked > 1 || state->selected_reps > 5 || state->next_workout > WORKOUT_B ||
+      state->active_workout > WORKOUT_B || state->active > 1 || state->rest_active > 1 ||
+      state->halfway_alerted > 1 || state->completion_alerted > 1 || !valid_advisory_state()) return false;
+  if (state->active && (state->exercise_index >= 3 ||
+      state->set_index >= WORKOUTS[state->active_workout][state->exercise_index].sets)) return false;
+  if (state->rest_active && (!state->active || state->exercise_index >= 3 ||
+      state->set_index >= WORKOUTS[state->active_workout][state->exercise_index].sets)) return false;
+  return true;
+}
+
+static bool finish_legacy_migration(void) {
+  bool saved = save_state();
+  debug_diag_load_choice(saved ? "legacy-migrated" : "legacy-save-failed", 0);
+  if (!saved) return false;
+  int state_result = persist_delete(STORAGE_KEY_STATE);
+  int sync_result = persist_delete(STORAGE_KEY_SYNC);
+  APP_LOG(APP_LOG_LEVEL_INFO, "LEGACY_REMOVED state=%d sync=%d", state_result, sync_result);
+  return true;
+}
+
 static void sync_failed(DictionaryIterator *i, AppMessageResult result, void *ctx) { (void)i; (void)ctx; APP_LOG(APP_LOG_LEVEL_ERROR,"SYNC_SEND_FAILED code=%d retry=%d",result,s_sync_adapter.machine.retry_index); s_sync_ready = false; s_sync_in_flight = false; sync_adapter_transport(&s_sync_adapter, false); }
 static void sync_sent(DictionaryIterator *i, void *ctx) { (void)i; (void)ctx; }
 static void sync_received(DictionaryIterator *i, void *ctx) {
@@ -580,6 +603,31 @@ static void initialize_state(void) {
 
 static void load_state(void) {
   debug_diag_event(4, 0, 0);
+  bool split_loaded = false;
+  /* Transactional state is authoritative. Legacy keys are not consulted
+   * after this validated path succeeds. */
+  {
+    PersistedCoreState core = {0}; PersistedSyncState sync = {0}; PersistenceMetadata metadata = {0};
+    PersistenceResult transaction_result = persistence_load(&s_persistence_adapter, sizeof core, &core, sizeof sync, &sync, NULL, &metadata);
+    if (transaction_result == PERSIST_OK) {
+      memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &core, sizeof core);
+      s_state.outbox = sync.outbox; s_state.next_record_id = sync.next_record_id;
+      s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
+      s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
+      if (loaded_state_valid(&s_state)) {
+#ifdef STRONGLIFTS_DEBUG
+        s_debug_load_source = "TRANSACTION";
+#endif
+        APP_LOG(APP_LOG_LEVEL_INFO, "persist loaded generation=%lu", (unsigned long)metadata.generation);
+        debug_diag_load_choice("transaction", STORAGE_SCHEMA_VERSION);
+        debug_diag_load_result(PERSIST_OK, metadata.generation, metadata.slot, s_state.weights);
+        debug_diag_state("LOAD", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
+        split_loaded = true;
+      }
+    }
+  }
+  if (split_loaded) goto validate_loaded;
+  debug_diag_load_choice("legacy-fallback", 0);
   uint8_t version = 0;
   if (persist_exists(STORAGE_KEY_STATE)) persist_read_data(STORAGE_KEY_STATE, &version, sizeof(version));
   if (version == 1) {
@@ -594,7 +642,7 @@ static void load_state(void) {
       s_state.exercise_index = old.exercise_index;
       s_state.set_index = old.set_index;
       memcpy(s_state.weights, DEFAULT_WEIGHTS, sizeof DEFAULT_WEIGHTS);
-      save_state();
+      finish_legacy_migration();
       return;
     }
   }
@@ -609,7 +657,7 @@ static void load_state(void) {
       s_state.rest_start = old.rest_start; s_state.rest_end = old.rest_end;
       s_state.halfway_alerted = old.halfway_alerted;
       memcpy(s_state.weights, DEFAULT_WEIGHTS, sizeof DEFAULT_WEIGHTS);
-      save_state();
+      finish_legacy_migration();
       if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       return;
     }
@@ -626,7 +674,7 @@ static void load_state(void) {
       s_state.halfway_alerted = old.halfway_alerted;
       memcpy(s_state.weights, old.weights, sizeof old.weights);
       memcpy(s_state.inventory_counts, DEFAULT_COUNTS, sizeof DEFAULT_COUNTS);
-      save_state();
+      finish_legacy_migration();
       if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       return;
     }
@@ -642,7 +690,7 @@ static void load_state(void) {
       s_state.rest_start = old.rest_start; s_state.rest_end = old.rest_end;
       s_state.halfway_alerted = old.halfway_alerted; memcpy(s_state.weights, old.weights, sizeof old.weights);
       memcpy(s_state.inventory_counts, old.inventory_counts, sizeof old.inventory_counts);
-      clear_warmup(); save_state();
+      clear_warmup(); finish_legacy_migration();
       if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       return;
     }
@@ -670,7 +718,7 @@ static void load_state(void) {
         s_state.active_weights[n] = weight_valid(s_state.weights[index]) ? s_state.weights[index] : DEFAULT_WEIGHTS[index];
       }
       if (s_state.rest_active && !rest_values_valid(time(NULL))) clear_rest();
-      save_state();
+      finish_legacy_migration();
       if (s_state.rest_active) start_rest_services();
       return;
     }
@@ -682,7 +730,7 @@ static void load_state(void) {
       memset(&s_state, 0, sizeof s_state);
       memcpy(&s_state, &old, sizeof old);
       s_state.last_completed = 0;
-      save_state();
+      finish_legacy_migration();
       if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       else if (s_state.rest_active) { clear_rest(); save_state(); }
       return;
@@ -708,7 +756,7 @@ static void load_state(void) {
       memcpy(s_state.deload_pending, old.deload_pending, sizeof old.deload_pending);
       memcpy(s_state.gap_reviewed, old.gap_reviewed, sizeof old.gap_reviewed);
       memcpy(s_state.accepted_deloads, old.accepted_deloads, sizeof old.accepted_deloads);
-      s_state.next_record_id = 0; s_state.outbox.count = 0; save_state();
+      s_state.next_record_id = 0; s_state.outbox.count = 0; finish_legacy_migration();
       if (s_state.rest_active && rest_values_valid(time(NULL))) start_rest_services();
       else if (s_state.rest_active) { clear_rest(); save_state(); }
       return;
@@ -718,19 +766,18 @@ static void load_state(void) {
     PersistedStateV8 old;
     if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old && sync_queue_valid(&old.outbox) && (!old.pending_valid || sync_record_valid(&old.pending_record))) {
       memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &old, sizeof old); s_state.schema_version = STORAGE_SCHEMA_VERSION;
-      s_state.completion_blocked = 0; s_state.selected_reps = 5; save_state(); return;
+      s_state.completion_blocked = 0; s_state.selected_reps = 5; finish_legacy_migration(); return;
     }
   }
   if (version == 9) {
     PersistedStateV9 old;
     if (persist_read_data(STORAGE_KEY_STATE, &old, sizeof old) == sizeof old &&
         migrate_v9_to_v10(&old, &s_state, (int32_t)time(NULL))) {
-      save_state();
+      finish_legacy_migration();
       if (s_state.rest_active) start_rest_services();
       return;
     }
   }
-  bool split_loaded = false;
   /* New saves use the two-slot transactional store. Legacy versions above
    * remain readable from STORAGE_KEY_STATE for migration compatibility. */
   {
@@ -766,15 +813,8 @@ static void load_state(void) {
       split_loaded = true;
     }
   }
-  if (split_loaded &&
-      s_state.schema_version == STORAGE_SCHEMA_VERSION && workout_state_valid(&s_state) &&
-      s_state.completion_blocked <= 1 && s_state.selected_reps <= 5 &&
-      s_state.next_workout <= WORKOUT_B && s_state.active_workout <= WORKOUT_B &&
-      (!s_state.active || (s_state.exercise_index < 3 &&
-       s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets)) &&
-      s_state.active <= 1 && s_state.rest_active <= 1 && s_state.halfway_alerted <= 1 && s_state.completion_alerted <= 1 && valid_advisory_state() &&
-       (!s_state.rest_active || (s_state.active &&
-       s_state.exercise_index < 3 && s_state.set_index < WORKOUTS[s_state.active_workout][s_state.exercise_index].sets))) {
+validate_loaded:
+  if (split_loaded && loaded_state_valid(&s_state)) {
     if (workout_state_repair_sync(&s_state)) save_state();
     for (size_t n = 0; n < 5; n++) if (!weight_valid(s_state.weights[n])) s_state.weights[n] = DEFAULT_WEIGHTS[n];
     for (size_t e = 0; e < 3; e++) for (size_t n = 0; n < 5; n++)
