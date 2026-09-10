@@ -734,6 +734,7 @@ static void load_state(void) {
       s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
       s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
       APP_LOG(APP_LOG_LEVEL_INFO, "persist loaded generation=%lu", (unsigned long)metadata.generation);
+      debug_diag_event(5, (uint32_t)s_state.weights[0], (uint32_t)s_state.inventory_counts[0]);
       split_loaded = true;
     }
   }
