@@ -489,6 +489,7 @@ static const char *workout_name(WorkoutType workout) {
 }
 
 static bool save_state(void) {
+  debug_diag_save_begin("state", s_state.weights);
   debug_diag_event(3, (uint32_t)(s_state.weights[0] / 4), s_state.inventory_counts[0]);
   debug_diag_state("SAVE", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
@@ -503,6 +504,7 @@ static bool save_state(void) {
   APP_LOG(APP_LOG_LEVEL_INFO, "SYNC_RECORD_COMMITTED generation=%lu result=%d core=%u sync=%u q=%u", (unsigned long)persistence_last_generation(), result,
           (unsigned)sizeof(core), (unsigned)sizeof(sync), (unsigned)sync.outbox.count);
   s_persistence_failed = result != PERSIST_OK;
+  debug_diag_save_commit(result, persistence_last_generation(), persistence_last_slot(), s_state.weights);
   if (s_persistence_failed) APP_LOG(APP_LOG_LEVEL_ERROR, "state persistence failed");
   return !s_persistence_failed;
 }
@@ -742,6 +744,8 @@ static void load_state(void) {
       s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
       s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
       APP_LOG(APP_LOG_LEVEL_INFO, "persist loaded generation=%lu", (unsigned long)metadata.generation);
+      debug_diag_load_choice("transaction", STORAGE_SCHEMA_VERSION);
+      debug_diag_load_result(PERSIST_OK, metadata.generation, metadata.slot, s_state.weights);
       debug_diag_event(5, (uint32_t)(s_state.weights[0] / 4), (uint32_t)s_state.inventory_counts[0]);
       debug_diag_state("LOAD", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
       split_loaded = true;
@@ -895,6 +899,7 @@ static void update_display(void) {
     }
     if (s_setup_mode == SETUP_WEIGHTS) {
       char weight[16]; weight_format(s_state.weights[s_weight_index], weight, sizeof weight);
+      debug_diag_ui_weights(s_state.weights);
       snprintf(s_exercise_text, sizeof s_exercise_text, "%s\n%s", SETUP_WEIGHT_NAMES[s_weight_index], weight);
       text_layer_set_text(s_title_layer, "Set Weight");
     } else {
@@ -1242,7 +1247,7 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
       s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
 #endif
     }
-    else if (s_setup_mode == SETUP_WEIGHTS) { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_up(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=UP event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); }
+    else if (s_setup_mode == SETUP_WEIGHTS) { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_up(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=UP event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); debug_diag_setup_change(s_weight_index, old, next); }
     else if (s_state.inventory_counts[s_plate_index] < 2) {
       s_state.inventory_counts[s_plate_index]++;
     }
@@ -1291,7 +1296,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
 #endif
   }
   else if (s_setup_mode == SETUP_WEIGHTS) {
-    { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_down(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=DOWN event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); }
+    { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_down(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=DOWN event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); debug_diag_setup_change(s_weight_index, old, next); }
   } else if (s_state.inventory_counts[s_plate_index] > 0) {
     s_state.inventory_counts[s_plate_index]--;
   }
