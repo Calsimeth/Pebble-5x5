@@ -138,6 +138,7 @@ static ScreenState s_screen = SCREEN_HOME;
 #ifdef STRONGLIFTS_DEBUG
 static uint8_t s_debug_page;
 static bool s_debug_clear_confirm;
+static const char *s_debug_load_source = "DEFAULT";
 #endif
 static uint8_t s_home_item;
 static WorkoutType s_selected_workout;
@@ -562,6 +563,9 @@ static void begin_deload(uint8_t exercise) {
 }
 
 static void initialize_state(void) {
+#ifdef STRONGLIFTS_DEBUG
+  s_debug_load_source = "DEFAULT";
+#endif
   memset(&s_state, 0, sizeof(s_state));
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
   s_state.next_workout = WORKOUT_A;
@@ -729,6 +733,9 @@ static void load_state(void) {
   {
     PersistedCoreState core = {0}; PersistedSyncState sync = {0}; PersistenceMetadata metadata = {0};
     if (persistence_load(&s_persistence_adapter, sizeof core, &core, sizeof sync, &sync, NULL, &metadata) == PERSIST_OK) {
+#ifdef STRONGLIFTS_DEBUG
+      s_debug_load_source = "TRANSACTION";
+#endif
       memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &core, sizeof core);
       s_state.outbox = sync.outbox; s_state.next_record_id = sync.next_record_id;
       s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
@@ -844,7 +851,7 @@ static void update_display(void) {
   if (s_screen == SCREEN_DIAGNOSTICS) {
     text_layer_set_text(s_title_layer, s_debug_clear_confirm ? "Clear Debug?" : "Diagnostics");
     if (s_debug_clear_confirm) text_layer_set_text(s_exercise_layer, "Select: clear\nBack: cancel");
-    else if (s_debug_page == 0) snprintf(s_exercise_text, sizeof s_exercise_text, "Schema %u G%lu S%u\nW %u %u %u %u %u\nSave %s", STORAGE_SCHEMA_VERSION, (unsigned long)persistence_last_generation(), (unsigned)persistence_last_slot(), (unsigned)s_state.weights[0], (unsigned)s_state.weights[1], (unsigned)s_state.weights[2], (unsigned)s_state.weights[3], (unsigned)s_state.weights[4], s_persistence_failed ? "FAIL" : "OK");
+    else if (s_debug_page == 0) snprintf(s_exercise_text, sizeof s_exercise_text, "Schema %u %s\nG%lu S%u Save %s\nW %u %u %u %u %u", STORAGE_SCHEMA_VERSION, s_debug_load_source, (unsigned long)persistence_last_generation(), (unsigned)persistence_last_slot(), s_persistence_failed ? "FAIL" : "OK", (unsigned)s_state.weights[0], (unsigned)s_state.weights[1], (unsigned)s_state.weights[2], (unsigned)s_state.weights[3], (unsigned)s_state.weights[4]);
     else if (s_debug_page == 1) snprintf(s_exercise_text, sizeof s_exercise_text, "Plates\n%u %u %u %u\n%u %u %u", (unsigned)s_state.inventory_counts[0], (unsigned)s_state.inventory_counts[1], (unsigned)s_state.inventory_counts[2], (unsigned)s_state.inventory_counts[3], (unsigned)s_state.inventory_counts[4], (unsigned)s_state.inventory_counts[5], (unsigned)s_state.inventory_counts[6]);
     else { debug_diag_render(s_exercise_text, sizeof s_exercise_text, (uint8_t)(s_debug_page - 2)); text_layer_set_text(s_exercise_layer, s_exercise_text); }
     text_layer_set_text(s_hint_layer, s_debug_clear_confirm ? "Select / Back" : "Up/Down page"); return;
