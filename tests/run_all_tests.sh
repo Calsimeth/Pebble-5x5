@@ -9,6 +9,8 @@ for test in tests/test_persistence_transaction.c tests/test_persistence_workouts
   gcc -std=c11 -Wall -Wextra -Werror -Isrc/c "$test" $sources -o "$tmp/$name"
   "$tmp/$name"
 done
+gcc -std=c11 -Wall -Wextra -Werror tests/test_debug_diagnostics.c -o "$tmp/test_debug_diagnostics"
+"$tmp/test_debug_diagnostics"
 node tests/test_sync.js
 sh tests/verify_fixtures.sh
 sh tests/test_screen_transitions.sh
