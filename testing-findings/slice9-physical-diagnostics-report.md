@@ -10,11 +10,15 @@ alongside this report.
 
 ## Boundaries and result
 
+Weights in this report are display pounds. Persistence stores quarter-pound
+units via `WEIGHT_LB(lb)`, so raw logger values `180` and `200` correspond to
+45 lb and 50 lb. The corrected diagnostic logger reports display pounds.
+
 BOOT 1 loaded generation `789`, slot `0`:
 
-`W=180,180,260,180,380 P=2,0,1,0,1,1,1`
+`W=45,45,65,45,95 P=2,0,1,0,1,1,1`
 
-The physical edit changed Squat from `180` to `200`. The immediate save
+The physical edit changed Squat from `45` to `50`. The immediate save
 committed generation `790` to slot `1`, using core key `12` (148 bytes), sync
 key `13` (176 bytes), and metadata key `14` (8 bytes); all writes returned
 their requested byte counts.
@@ -22,7 +26,7 @@ their requested byte counts.
 The first normal exit committed generation `791`. BOOT 2 loaded generation
 `791` and reported:
 
-`W=200,180,260,180,380 P=2,0,1,0,1,1,1`
+`W=50,45,65,45,95 P=2,0,1,0,1,1,1`
 
 The second normal exit committed generation `793` after the unchanged-value
 re-entry procedure. BOOT 3 loaded generation `793` and reported the same

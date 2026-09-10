@@ -489,7 +489,7 @@ static const char *workout_name(WorkoutType workout) {
 }
 
 static bool save_state(void) {
-  debug_diag_event(3, s_state.weights[0], s_state.inventory_counts[0]);
+  debug_diag_event(3, (uint32_t)(s_state.weights[0] / 4), s_state.inventory_counts[0]);
   debug_diag_state("SAVE", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
   PersistedCoreState core = {0};
@@ -742,7 +742,7 @@ static void load_state(void) {
       s_state.pending_record = sync.pending_record; s_state.pending_valid = sync.pending_valid;
       s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
       APP_LOG(APP_LOG_LEVEL_INFO, "persist loaded generation=%lu", (unsigned long)metadata.generation);
-      debug_diag_event(5, (uint32_t)s_state.weights[0], (uint32_t)s_state.inventory_counts[0]);
+      debug_diag_event(5, (uint32_t)(s_state.weights[0] / 4), (uint32_t)s_state.inventory_counts[0]);
       debug_diag_state("LOAD", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
       split_loaded = true;
     }
