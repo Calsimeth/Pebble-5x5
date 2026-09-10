@@ -3,10 +3,11 @@
 Build: debug `STRONGLIFTS_DEBUG=1`, normal UUID, installed over the existing
 application at `192.168.8.120` without uninstalling or wiping state.
 
-The complete chronological capture is in
-`physical-diagnostics-capture-2.log` at the repository root. It was written
-directly by `pebble logs --phone 192.168.8.120 | tee ...` and is committed
-alongside this report.
+The complete chronological captures are in
+`physical-diagnostics-capture-2.log` and `physical-diagnostics-final.log` at
+the repository root. Both were written directly by
+`pebble logs --phone 192.168.8.120 | tee ...` and are committed alongside this
+report.
 
 ## Boundaries and result
 
@@ -31,6 +32,13 @@ The first normal exit committed generation `791`. BOOT 2 loaded generation
 The second normal exit committed generation `793` after the unchanged-value
 re-entry procedure. BOOT 3 loaded generation `793` and reported the same
 five weights and plate counts.
+
+The corrected final capture then recorded a further clean relaunch sequence:
+BOOT 3 loaded generation `805` with
+`W=60,45,65,45,95 P=2,0,1,0,1,1,1`. A normal exit committed generation `806`,
+and the following relaunch loaded generation `806` with the identical five
+weights and plate counts. All metadata, core, and sync reads returned their
+requested byte counts.
 
 No stored/loaded divergence or reset was observed. There was a later physical
 edit from `200` to `220` after BOOT 3, followed by generation `795` and exit
