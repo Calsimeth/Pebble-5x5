@@ -16,6 +16,7 @@
 #include "rest_state.h"
 #include "migration.h"
 #include "persistence.h"
+#include "debug_diagnostics.h"
 
 enum {
   STORAGE_KEY_STATE = 1,
@@ -128,8 +129,16 @@ static SetupMode s_setup_mode;
 static uint8_t s_setup_menu_index;
 static uint8_t s_weight_index;
 static uint8_t s_plate_index;
-typedef enum { SCREEN_HOME, SCREEN_SETUP, SCREEN_WORKOUT, SCREEN_WORKOUT_SELECT, SCREEN_HISTORY, SCREEN_PROGRESS_PICKER, SCREEN_PROGRESS_GRAPH } ScreenState;
+typedef enum { SCREEN_HOME, SCREEN_SETUP, SCREEN_WORKOUT, SCREEN_WORKOUT_SELECT, SCREEN_HISTORY, SCREEN_PROGRESS_PICKER, SCREEN_PROGRESS_GRAPH
+#ifdef STRONGLIFTS_DEBUG
+  , SCREEN_DIAGNOSTICS
+#endif
+} ScreenState;
 static ScreenState s_screen = SCREEN_HOME;
+#ifdef STRONGLIFTS_DEBUG
+static uint8_t s_debug_page;
+static bool s_debug_clear_confirm;
+#endif
 static uint8_t s_home_item;
 static WorkoutType s_selected_workout;
 static bool s_weights_adjusted;
@@ -479,6 +488,7 @@ static const char *workout_name(WorkoutType workout) {
 }
 
 static bool save_state(void) {
+  debug_diag_event(3, s_state.weights[0], s_state.inventory_counts[0]);
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
   PersistedCoreState core = {0};
   PersistedSyncState sync = {0};
@@ -562,6 +572,7 @@ static void initialize_state(void) {
 }
 
 static void load_state(void) {
+  debug_diag_event(4, 0, 0);
   uint8_t version = 0;
   if (persist_exists(STORAGE_KEY_STATE)) persist_read_data(STORAGE_KEY_STATE, &version, sizeof(version));
   if (version == 1) {
@@ -828,6 +839,15 @@ static void update_display(void) {
     text_layer_set_text(s_hint_layer, "Back: return");
     return;
   }
+#ifdef STRONGLIFTS_DEBUG
+  if (s_screen == SCREEN_DIAGNOSTICS) {
+    text_layer_set_text(s_title_layer, s_debug_clear_confirm ? "Clear Debug?" : "Diagnostics");
+    if (s_debug_clear_confirm) text_layer_set_text(s_exercise_layer, "Select: clear\nBack: cancel");
+    else if (s_debug_page == 0) snprintf(s_exercise_text, sizeof s_exercise_text, "Schema %u Gen %lu\nW %u %u %u %u %u\nP %u %u %u %u", STORAGE_SCHEMA_VERSION, (unsigned long)persistence_last_generation(), (unsigned)s_state.weights[0], (unsigned)s_state.weights[1], (unsigned)s_state.weights[2], (unsigned)s_state.weights[3], (unsigned)s_state.weights[4], (unsigned)s_state.inventory_counts[0], (unsigned)s_state.inventory_counts[1], (unsigned)s_state.inventory_counts[2], (unsigned)s_state.inventory_counts[3]);
+    else { debug_diag_render(s_exercise_text, sizeof s_exercise_text, (uint8_t)(s_debug_page - 1)); text_layer_set_text(s_exercise_layer, s_exercise_text); }
+    text_layer_set_text(s_hint_layer, s_debug_clear_confirm ? "Select / Back" : "Up/Down page"); return;
+  }
+#endif
   text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
   if (s_plateau) {
     text_layer_set_text(s_title_layer, "Plateau likely");
@@ -854,6 +874,9 @@ static void update_display(void) {
       snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s",
                s_setup_menu_index == 0 ? "> " : "  ", "Exercise Weights",
                s_setup_menu_index == 1 ? "> " : "  ", "Plate Inventory");
+#ifdef STRONGLIFTS_DEBUG
+      if (s_setup_menu_index == 2) snprintf(s_exercise_text, sizeof s_exercise_text, "  Exercise Weights\n  Plate Inventory\n> Diagnostics");
+#endif
       text_layer_set_text(s_title_layer, "Setup");
       text_layer_set_text(s_hint_layer, "Up/Down: choose");
       text_layer_set_text(s_exercise_layer, s_exercise_text);
@@ -1103,6 +1126,9 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
     else { s_progress_exercise=0; s_progress_page=0; update_display(); } return;
   }
   if (s_screen == SCREEN_PROGRESS_PICKER) { s_screen=SCREEN_PROGRESS_GRAPH; s_progress_page=0; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); update_display(); return; }
+#ifdef STRONGLIFTS_DEBUG
+  if (s_screen == SCREEN_DIAGNOSTICS) { if (s_debug_clear_confirm) { debug_diag_clear(); s_debug_clear_confirm=false; s_debug_page=0; } else s_debug_clear_confirm=true; update_display(); return; }
+#endif
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_state.next_workout = s_selected_workout; s_screen = SCREEN_WORKOUT; update_display(); return; }
   if (s_plateau) { s_state.plateau_reviewed[s_plateau_exercise] = 1; s_plateau = false; save_state(); }
   if (s_deload) {
@@ -1116,7 +1142,10 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   if (s_setup) {
     if (s_setup_mode == SETUP_MENU) {
       if (s_setup_menu_index == 0) { s_setup_mode = SETUP_WEIGHTS; s_weight_index = 0; }
-      else { s_setup_mode = SETUP_PLATES; s_plate_index = 0; }
+      else if (s_setup_menu_index == 1) { s_setup_mode = SETUP_PLATES; s_plate_index = 0; }
+#ifdef STRONGLIFTS_DEBUG
+      else { s_screen = SCREEN_DIAGNOSTICS; s_debug_page=0; }
+#endif
     } else if (s_setup_mode == SETUP_WEIGHTS) {
       if (++s_weight_index >= 5) s_setup_mode = SETUP_MENU;
     } else {
@@ -1195,7 +1224,13 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
     update_display(); return;
   }
   if (s_setup) {
-    if (s_setup_mode == SETUP_MENU) s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
+    if (s_setup_mode == SETUP_MENU) {
+#ifdef STRONGLIFTS_DEBUG
+      s_setup_menu_index = (uint8_t)((s_setup_menu_index + 1) % 3);
+#else
+      s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
+#endif
+    }
     else if (s_setup_mode == SETUP_WEIGHTS) { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_up(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=UP event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); }
     else if (s_state.inventory_counts[s_plate_index] < 2) {
       s_state.inventory_counts[s_plate_index]++;
@@ -1214,8 +1249,14 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_HOME) { if (s_home_item + 1 < home_item_count()) s_home_item++; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (++s_calendar_month>12){s_calendar_month=1;s_calendar_year++;} query_send("calendar_request"); update_display(); return; }
+#ifdef STRONGLIFTS_DEBUG
+  if (s_screen == SCREEN_DIAGNOSTICS) { if (s_debug_clear_confirm) s_debug_clear_confirm=false; else s_debug_page++; update_display(); return; }
+#endif
   if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise<4) s_progress_exercise++; update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_page > 0) { s_progress_page--; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); } update_display(); return; }
+#ifdef STRONGLIFTS_DEBUG
+  if (s_screen == SCREEN_DIAGNOSTICS) { if (s_debug_clear_confirm) s_debug_clear_confirm=false; else if (s_debug_page) s_debug_page--; update_display(); return; }
+#endif
   if (s_deload) {
     PlateInventory inventory = current_inventory();
     if (s_deload_adjusting) s_deload_weight = previous_achievable_total(s_deload_weight, &inventory);
@@ -1231,7 +1272,13 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
     } else if (!s_state.active && !s_saved) { s_setup = true; s_setup_item = 0; update_display(); }
     return;
   }
-  if (s_setup_mode == SETUP_MENU) s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
+  if (s_setup_mode == SETUP_MENU) {
+#ifdef STRONGLIFTS_DEBUG
+    s_setup_menu_index = s_setup_menu_index == 0 ? 2 : (s_setup_menu_index == 2 ? 1 : 0);
+#else
+    s_setup_menu_index = s_setup_menu_index == 0 ? 1 : 0;
+#endif
+  }
   else if (s_setup_mode == SETUP_WEIGHTS) {
     { Weight old = s_state.weights[s_weight_index]; Weight next = setup_manual_down(old); s_state.weights[s_weight_index] = next; s_state.failure_streaks[s_weight_index] = failure_streak_after_manual_weight_change(s_state.failure_streaks[s_weight_index], old, next); APP_LOG(APP_LOG_LEVEL_INFO, "SETUP_ADJUST dir=DOWN event=%s prior=%u result=%u", s_adjustment_event, (unsigned)old, (unsigned)next); }
   } else if (s_state.inventory_counts[s_plate_index] > 0) {
@@ -1315,6 +1362,9 @@ static void back_navigation(ClickRecognizerRef recognizer, void *context) {
   }
   if (s_screen == SCREEN_PROGRESS_GRAPH) { query_cancel(); s_screen=SCREEN_PROGRESS_PICKER; update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY) { query_cancel(); show_home(); return; }
+#ifdef STRONGLIFTS_DEBUG
+  if (s_screen == SCREEN_DIAGNOSTICS) { if (s_debug_clear_confirm) s_debug_clear_confirm=false; else { s_screen=SCREEN_HOME; s_setup=false; } update_display(); return; }
+#endif
   if (s_screen != SCREEN_WORKOUT) { show_home(); return; }
   if (s_state.active) {
     if (s_confirm_abandon) { s_confirm_abandon = false; save_state(); update_display(); return; }
@@ -1378,6 +1428,7 @@ static void window_unload(Window *window) {
 }
 
 static void init(void) {
+  debug_diag_boot();
   query_controller_init(&s_query_controller);
   load_state();
   final_set_transition_init(&s_final_transition, final_set_log, NULL);
@@ -1408,7 +1459,7 @@ static void init(void) {
   window_stack_push(s_window, true);
 }
 
-static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); cancel_adjustment_timer(); save_state(); query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
+static void deinit(void) { APP_LOG(APP_LOG_LEVEL_INFO,"SYNC_APP_DEINIT_SAVE"); debug_diag_shutdown(); cancel_adjustment_timer(); save_state(); query_cancel(); stop_rest_services(); if (s_final_set_timer) app_timer_cancel(s_final_set_timer); s_final_set_timer = NULL; final_set_transition_cancel(&s_final_transition); s_final_set_advance_authorized = false; sync_adapter_deinit(&s_sync_adapter); s_sync_ack_timer = NULL; window_destroy(s_window); }
 
 int main(void) {
   init();
