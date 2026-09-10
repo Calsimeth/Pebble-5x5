@@ -10,15 +10,26 @@ enum { DBG_META = 30, DBG_DATA = 31, DBG_CAP = 48, MAX_BYTES = 768 };
 static int valid_meta(const Meta *m) {
   return m->version == 1 && m->head < DBG_CAP && m->count <= DBG_CAP;
 }
+static unsigned diag_key(unsigned index) {
+  return index == 0 ? DBG_META : DBG_DATA + (index - 1) * sizeof(Event);
+}
 
 int main(void) {
   Meta m = { 1, 0, 0 }, corrupt = { 2, 0, 0 };
   Event ring[DBG_CAP] = { 0 }, e = { 7, 123, 456 };
   assert(sizeof(Event) <= 12);
   assert(3 + DBG_CAP * sizeof(Event) <= MAX_BYTES);
-  assert(DBG_META != 1 && DBG_META != 2 && DBG_META != 10 && DBG_META != 11 && DBG_META != 12 && DBG_META != 13 && DBG_META != 14);
-  assert(DBG_DATA != 1 && DBG_DATA != 2 && DBG_DATA != 10 && DBG_DATA != 11 && DBG_DATA != 12 && DBG_DATA != 13 && DBG_DATA != 14);
+  for (unsigned key_index = 0; key_index <= DBG_CAP; key_index++) {
+    unsigned key = diag_key(key_index);
+    assert(key != 1 && key != 2 && key != 10 && key != 11 && key != 12 && key != 13 && key != 14);
+  }
   assert(valid_meta(&m) && !valid_meta(&corrupt));
+  /* Partial ring: newest is always immediately before head. */
+  memset(ring, 0, sizeof ring); m = (Meta){1, 3, 3};
+  ring[0].code = 1; ring[1].code = 2; ring[2].code = 3;
+  assert(ring[(m.head + DBG_CAP - 1) % DBG_CAP].code == 3);
+  assert(ring[(m.head + DBG_CAP - 2) % DBG_CAP].code == 2);
+  m = (Meta){1, 0, 0};
   for (unsigned n = 0; n < DBG_CAP + 5; n++) {
     ring[m.head] = e;
     ring[m.head].a = n;
