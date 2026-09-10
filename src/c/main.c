@@ -844,8 +844,9 @@ static void update_display(void) {
   if (s_screen == SCREEN_DIAGNOSTICS) {
     text_layer_set_text(s_title_layer, s_debug_clear_confirm ? "Clear Debug?" : "Diagnostics");
     if (s_debug_clear_confirm) text_layer_set_text(s_exercise_layer, "Select: clear\nBack: cancel");
-    else if (s_debug_page == 0) snprintf(s_exercise_text, sizeof s_exercise_text, "Schema %u Gen %lu\nW %u %u %u %u %u\nP %u %u %u %u", STORAGE_SCHEMA_VERSION, (unsigned long)persistence_last_generation(), (unsigned)s_state.weights[0], (unsigned)s_state.weights[1], (unsigned)s_state.weights[2], (unsigned)s_state.weights[3], (unsigned)s_state.weights[4], (unsigned)s_state.inventory_counts[0], (unsigned)s_state.inventory_counts[1], (unsigned)s_state.inventory_counts[2], (unsigned)s_state.inventory_counts[3]);
-    else { debug_diag_render(s_exercise_text, sizeof s_exercise_text, (uint8_t)(s_debug_page - 1)); text_layer_set_text(s_exercise_layer, s_exercise_text); }
+    else if (s_debug_page == 0) snprintf(s_exercise_text, sizeof s_exercise_text, "Schema %u G%lu S%u\nW %u %u %u %u %u\nSave %s", STORAGE_SCHEMA_VERSION, (unsigned long)persistence_last_generation(), (unsigned)persistence_last_slot(), (unsigned)s_state.weights[0], (unsigned)s_state.weights[1], (unsigned)s_state.weights[2], (unsigned)s_state.weights[3], (unsigned)s_state.weights[4], s_persistence_failed ? "FAIL" : "OK");
+    else if (s_debug_page == 1) snprintf(s_exercise_text, sizeof s_exercise_text, "Plates\n%u %u %u %u\n%u %u %u", (unsigned)s_state.inventory_counts[0], (unsigned)s_state.inventory_counts[1], (unsigned)s_state.inventory_counts[2], (unsigned)s_state.inventory_counts[3], (unsigned)s_state.inventory_counts[4], (unsigned)s_state.inventory_counts[5], (unsigned)s_state.inventory_counts[6]);
+    else { debug_diag_render(s_exercise_text, sizeof s_exercise_text, (uint8_t)(s_debug_page - 2)); text_layer_set_text(s_exercise_layer, s_exercise_text); }
     text_layer_set_text(s_hint_layer, s_debug_clear_confirm ? "Select / Back" : "Up/Down page"); return;
   }
 #endif

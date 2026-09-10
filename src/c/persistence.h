@@ -10,4 +10,5 @@ typedef enum { PERSIST_OK=0, PERSIST_INVALID=-1, PERSIST_IO=-2, PERSIST_TOO_LARG
 PersistenceResult persistence_save(const PersistenceAdapter*,size_t,const void*,size_t,const void*,void*);
 PersistenceResult persistence_load(const PersistenceAdapter*,size_t,void*,size_t,void*,void*,PersistenceMetadata*);
 uint32_t persistence_last_generation(void);
+uint8_t persistence_last_slot(void);
 #endif
