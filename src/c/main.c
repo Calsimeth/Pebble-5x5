@@ -240,10 +240,10 @@ static const Weight DEFAULT_WEIGHTS[5] = {WEIGHT_LB(45), WEIGHT_LB(45), WEIGHT_L
 static const PlateCounts DEFAULT_COUNTS = {2, 0, 1, 0, 1, 1, 1};
 static Weight current_weight(uint8_t workout, uint8_t exercise);
 static bool save_state(void);
-static bool persistence_exists_adapter(uint32_t key, void *ctx) { (void)ctx; return persist_exists((uint32_t)key); }
-static int persistence_size_adapter(uint32_t key, void *ctx) { (void)ctx; return persist_get_size((uint32_t)key); }
-static int persistence_read_adapter(uint32_t key, void *data, size_t size, void *ctx) { (void)ctx; return persist_read_data((uint32_t)key, data, (size_t)size); }
-static int persistence_write_adapter(uint32_t key, const void *data, size_t size, void *ctx) { (void)ctx; return persist_write_data((uint32_t)key, data, (size_t)size); }
+static bool persistence_exists_adapter(uint32_t key, void *ctx) { (void)ctx; bool result = persist_exists((uint32_t)key); debug_diag_persist("EXISTS", key, 0, result); return result; }
+static int persistence_size_adapter(uint32_t key, void *ctx) { (void)ctx; int result = persist_get_size((uint32_t)key); debug_diag_persist("SIZE", key, 0, result); return result; }
+static int persistence_read_adapter(uint32_t key, void *data, size_t size, void *ctx) { (void)ctx; int result = persist_read_data((uint32_t)key, data, (size_t)size); debug_diag_persist("READ", key, (uint32_t)size, result); return result; }
+static int persistence_write_adapter(uint32_t key, const void *data, size_t size, void *ctx) { (void)ctx; int result = persist_write_data((uint32_t)key, data, (size_t)size); debug_diag_persist("WRITE", key, (uint32_t)size, result); return result; }
 static const PersistenceAdapter s_persistence_adapter = { persistence_exists_adapter, persistence_size_adapter, persistence_read_adapter, persistence_write_adapter };
 static bool allocate_record_id(PersistedState *state, uint32_t *out) {
   return state && out && sync_allocate_id(&state->next_record_id, &state->outbox, &state->pending_record, state->pending_valid, out);
