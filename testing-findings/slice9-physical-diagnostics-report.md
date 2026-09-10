@@ -1,0 +1,46 @@
+# Slice 9 physical diagnostics
+
+Build: debug `STRONGLIFTS_DEBUG=1`, normal UUID, installed over the existing
+application at `192.168.8.120` without uninstalling or wiping state.
+
+The complete chronological capture is in
+`physical-diagnostics-capture-2.log` at the repository root. It was written
+directly by `pebble logs --phone 192.168.8.120 | tee ...` and is committed
+alongside this report.
+
+## Boundaries and result
+
+BOOT 1 loaded generation `789`, slot `0`:
+
+`W=180,180,260,180,380 P=2,0,1,0,1,1,1`
+
+The physical edit changed Squat from `180` to `200`. The immediate save
+committed generation `790` to slot `1`, using core key `12` (148 bytes), sync
+key `13` (176 bytes), and metadata key `14` (8 bytes); all writes returned
+their requested byte counts.
+
+The first normal exit committed generation `791`. BOOT 2 loaded generation
+`791` and reported:
+
+`W=200,180,260,180,380 P=2,0,1,0,1,1,1`
+
+The second normal exit committed generation `793` after the unchanged-value
+re-entry procedure. BOOT 3 loaded generation `793` and reported the same
+five weights and plate counts.
+
+No stored/loaded divergence or reset was observed. There was a later physical
+edit from `200` to `220` after BOOT 3, followed by generation `795` and exit
+generation `796`; the capture ended before a fourth reload, so that later
+value is intentionally not claimed as reload-verified.
+
+## Relevant event sequence
+
+Each boot boundary contains `DBG_KEYS`, `DBG_EVENT 1`, metadata/core/sync
+reads, `persist loaded generation=...`, and `DBG_STATE_LOAD`. Each save
+contains `DBG_STATE_SAVE`, metadata read, core/sync/metadata writes, and
+`SYNC_RECORD_COMMITTED`. No persistence read or write returned an error.
+
+The tested procedure was: Setup weight editor, normal Back navigation to Home,
+normal app exit, relaunch, and repeat once. This does not prove the exact
+physical procedure that originally caused the reset if that procedure used a
+different exit gesture, OS task termination, or watch sleep/power transition.

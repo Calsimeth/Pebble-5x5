@@ -490,6 +490,7 @@ static const char *workout_name(WorkoutType workout) {
 
 static bool save_state(void) {
   debug_diag_event(3, s_state.weights[0], s_state.inventory_counts[0]);
+  debug_diag_state("SAVE", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
   s_state.schema_version = STORAGE_SCHEMA_VERSION;
   PersistedCoreState core = {0};
   PersistedSyncState sync = {0};
@@ -742,6 +743,7 @@ static void load_state(void) {
       s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
       APP_LOG(APP_LOG_LEVEL_INFO, "persist loaded generation=%lu", (unsigned long)metadata.generation);
       debug_diag_event(5, (uint32_t)s_state.weights[0], (uint32_t)s_state.inventory_counts[0]);
+      debug_diag_state("LOAD", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
       split_loaded = true;
     }
   }
@@ -808,7 +810,7 @@ static void update_display(void) {
   set_workout_layer_visible(s_state.active && (!s_state.warmup_active || s_confirm_abandon) && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(s_state.active ? FONT_KEY_GOTHIC_14_BOLD : FONT_KEY_GOTHIC_18_BOLD));
-    text_layer_set_text(s_title_layer, "StrongLifts");
+    text_layer_set_text(s_title_layer, "5x5");
     if (s_state.active) snprintf(s_exercise_text, sizeof s_exercise_text, "%s%s\n%s%s\n%s%s\n%s%s\n%s%s",
              s_home_item == 0 ? "> " : "  ", home_label(0), s_home_item == 1 ? "> " : "  ", home_label(1),
              s_home_item == 2 ? "> " : "  ", home_label(2), s_home_item == 3 ? "> " : "  ", home_label(3),

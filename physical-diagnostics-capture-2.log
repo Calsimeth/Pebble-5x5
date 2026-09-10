@@ -1,0 +1,150 @@
+[22:24:44] main.c:1311> BACK_SINGLE
+[22:24:44] main.c:1473> SYNC_APP_DEINIT_SAVE
+[22:24:44] g_diagnostics.c:12> DBG_EVENT 2 0 0
+[22:24:44] g_diagnostics.c:12> DBG_EVENT 3 180 2
+[22:24:45] g_diagnostics.c:14> DBG_STATE_SAVE W=180,180,260,180,380 P=2,0,1,0,1,1,1
+[22:24:45] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:24:45] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:24:45] g_diagnostics.c:13> DBG_PERSIST_WRITE k=10 n=148 r=148
+[22:24:45] g_diagnostics.c:13> DBG_PERSIST_WRITE k=11 n=176 r=176
+[22:24:45] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:24:45] main.c:503> SYNC_RECORD_COMMITTED generation=789 result=0 core=148 sync=176 q=0
+[22:24:45] ocess_manager.c:506> Heap Usage for App <5x5>: Total Size <95720B> Used <1144B> Still allocated <0B>
+[22:24:47] g_diagnostics.c:15> DBG_KEYS 3 12
+[22:24:47] g_diagnostics.c:12> DBG_EVENT 1 0 0
+[22:24:47] g_diagnostics.c:12> DBG_EVENT 4 0 0
+[22:24:47] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:24:47] g_diagnostics.c:13> DBG_PERSIST_READ k=10 n=148 r=148
+[22:24:47] g_diagnostics.c:13> DBG_PERSIST_READ k=11 n=176 r=176
+[22:24:47] main.c:744> persist loaded generation=789
+[22:24:47] g_diagnostics.c:12> DBG_EVENT 5 180 2
+[22:24:47] g_diagnostics.c:14> DBG_STATE_LOAD W=180,180,260,180,380 P=2,0,1,0,1,1,1
+[22:24:47] main.c:1460> APP_MESSAGE_OPEN inbox=256 outbox=128 result=0
+[22:24:48] pkjs> 5x5:? Pebble JS Bridge initialized.
+[22:24:48] pkjs> 5x5:157:56 5x5 sync ready
+[22:24:49] main.c:1119> SELECT screen=0 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:49] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:50] main.c:1245> SETUP_ADJUST dir=UP event=SHORT prior=180 result=200
+[22:24:50] main.c:1249> SYNC_SETUP_MUTATION weights=200 plates=0
+[22:24:50] g_diagnostics.c:12> DBG_EVENT 3 200 2
+[22:24:50] g_diagnostics.c:14> DBG_STATE_SAVE W=200,180,260,180,380 P=2,0,1,0,1,1,1
+[22:24:50] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:24:50] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:24:50] g_diagnostics.c:13> DBG_PERSIST_WRITE k=12 n=148 r=148
+[22:24:50] g_diagnostics.c:13> DBG_PERSIST_WRITE k=13 n=176 r=176
+[22:24:50] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:24:50] main.c:503> SYNC_RECORD_COMMITTED generation=790 result=0 core=148 sync=176 q=0
+[22:24:51] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:51] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:52] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:52] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:52] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:53] main.c:1311> BACK_SINGLE
+[22:24:54] main.c:1311> BACK_SINGLE
+[22:24:54] main.c:1473> SYNC_APP_DEINIT_SAVE
+[22:24:54] g_diagnostics.c:12> DBG_EVENT 2 0 0
+[22:24:54] g_diagnostics.c:12> DBG_EVENT 3 200 2
+[22:24:54] g_diagnostics.c:14> DBG_STATE_SAVE W=200,180,260,180,380 P=2,0,1,0,1,1,1
+[22:24:54] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:24:54] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:24:54] g_diagnostics.c:13> DBG_PERSIST_WRITE k=10 n=148 r=148
+[22:24:54] g_diagnostics.c:13> DBG_PERSIST_WRITE k=11 n=176 r=176
+[22:24:54] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:24:54] main.c:503> SYNC_RECORD_COMMITTED generation=791 result=0 core=148 sync=176 q=0
+[22:24:54] ocess_manager.c:506> Heap Usage for App <5x5>: Total Size <95720B> Used <1144B> Still allocated <0B>
+[22:24:54] g_diagnostics.c:15> DBG_KEYS 3 12
+[22:24:54] g_diagnostics.c:12> DBG_EVENT 1 0 0
+[22:24:54] g_diagnostics.c:12> DBG_EVENT 4 0 0
+[22:24:54] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:24:55] g_diagnostics.c:13> DBG_PERSIST_READ k=10 n=148 r=148
+[22:24:55] g_diagnostics.c:13> DBG_PERSIST_READ k=11 n=176 r=176
+[22:24:55] main.c:744> persist loaded generation=791
+[22:24:55] g_diagnostics.c:12> DBG_EVENT 5 200 2
+[22:24:55] g_diagnostics.c:14> DBG_STATE_LOAD W=200,180,260,180,380 P=2,0,1,0,1,1,1
+[22:24:55] main.c:1460> APP_MESSAGE_OPEN inbox=256 outbox=128 result=0
+[22:24:55] pkjs> 5x5:? Pebble JS Bridge initialized.
+[22:24:55] pkjs> 5x5:157:56 5x5 sync ready
+[22:24:56] main.c:1119> SELECT screen=0 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:56] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:57] main.c:1245> SETUP_ADJUST dir=UP event=SHORT prior=180 result=200
+[22:24:57] main.c:1249> SYNC_SETUP_MUTATION weights=200 plates=0
+[22:24:57] g_diagnostics.c:12> DBG_EVENT 3 200 2
+[22:24:57] g_diagnostics.c:14> DBG_STATE_SAVE W=200,180,260,180,380 P=2,0,1,0,1,1,1
+[22:24:57] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:24:57] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:24:57] g_diagnostics.c:13> DBG_PERSIST_WRITE k=12 n=148 r=148
+[22:24:57] g_diagnostics.c:13> DBG_PERSIST_WRITE k=13 n=176 r=176
+[22:24:57] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:24:57] main.c:503> SYNC_RECORD_COMMITTED generation=792 result=0 core=148 sync=176 q=0
+[22:24:58] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:58] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:59] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:59] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:24:59] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:02] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:03] main.c:1311> BACK_SINGLE
+[22:25:04] main.c:1311> BACK_SINGLE
+[22:25:04] main.c:1311> BACK_SINGLE
+[22:25:04] main.c:1473> SYNC_APP_DEINIT_SAVE
+[22:25:04] g_diagnostics.c:12> DBG_EVENT 2 0 0
+[22:25:04] g_diagnostics.c:12> DBG_EVENT 3 200 2
+[22:25:04] g_diagnostics.c:14> DBG_STATE_SAVE W=200,180,260,180,380 P=2,0,1,0,1,1,1
+[22:25:04] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:25:04] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:25:04] g_diagnostics.c:13> DBG_PERSIST_WRITE k=10 n=148 r=148
+[22:25:04] g_diagnostics.c:13> DBG_PERSIST_WRITE k=11 n=176 r=176
+[22:25:04] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:25:04] main.c:503> SYNC_RECORD_COMMITTED generation=793 result=0 core=148 sync=176 q=0
+[22:25:04] ocess_manager.c:506> Heap Usage for App <5x5>: Total Size <95720B> Used <1144B> Still allocated <0B>
+[22:25:05] g_diagnostics.c:15> DBG_KEYS 3 12
+[22:25:05] g_diagnostics.c:12> DBG_EVENT 1 0 0
+[22:25:05] g_diagnostics.c:12> DBG_EVENT 4 0 0
+[22:25:05] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:25:05] g_diagnostics.c:13> DBG_PERSIST_READ k=10 n=148 r=148
+[22:25:05] g_diagnostics.c:13> DBG_PERSIST_READ k=11 n=176 r=176
+[22:25:05] main.c:744> persist loaded generation=793
+[22:25:05] g_diagnostics.c:12> DBG_EVENT 5 200 2
+[22:25:05] g_diagnostics.c:14> DBG_STATE_LOAD W=200,180,260,180,380 P=2,0,1,0,1,1,1
+[22:25:05] main.c:1460> APP_MESSAGE_OPEN inbox=256 outbox=128 result=0
+[22:25:06] pkjs> 5x5:? Pebble JS Bridge initialized.
+[22:25:06] pkjs> 5x5:157:56 5x5 sync ready
+[22:25:06] main.c:1119> SELECT screen=0 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:07] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:08] main.c:1245> SETUP_ADJUST dir=UP event=SHORT prior=180 result=200
+[22:25:08] main.c:1249> SYNC_SETUP_MUTATION weights=200 plates=0
+[22:25:08] g_diagnostics.c:12> DBG_EVENT 3 200 2
+[22:25:08] g_diagnostics.c:14> DBG_STATE_SAVE W=200,180,260,180,380 P=2,0,1,0,1,1,1
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_WRITE k=12 n=148 r=148
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_WRITE k=13 n=176 r=176
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:25:08] main.c:503> SYNC_RECORD_COMMITTED generation=794 result=0 core=148 sync=176 q=0
+[22:25:08] main.c:1245> SETUP_ADJUST dir=UP event=SHORT prior=200 result=220
+[22:25:08] main.c:1249> SYNC_SETUP_MUTATION weights=220 plates=0
+[22:25:08] g_diagnostics.c:12> DBG_EVENT 3 220 2
+[22:25:08] g_diagnostics.c:14> DBG_STATE_SAVE W=220,180,260,180,380 P=2,0,1,0,1,1,1
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_WRITE k=10 n=148 r=148
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_WRITE k=11 n=176 r=176
+[22:25:08] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:25:08] main.c:503> SYNC_RECORD_COMMITTED generation=795 result=0 core=148 sync=176 q=0
+[22:25:08] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:09] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:09] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:09] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:09] main.c:1119> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[22:25:10] main.c:1311> BACK_SINGLE
+[22:25:10] main.c:1311> BACK_SINGLE
+[22:25:10] main.c:1473> SYNC_APP_DEINIT_SAVE
+[22:25:10] g_diagnostics.c:12> DBG_EVENT 2 0 0
+[22:25:10] g_diagnostics.c:12> DBG_EVENT 3 220 2
+[22:25:10] g_diagnostics.c:14> DBG_STATE_SAVE W=220,180,260,180,380 P=2,0,1,0,1,1,1
+[22:25:10] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[22:25:10] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[22:25:10] g_diagnostics.c:13> DBG_PERSIST_WRITE k=12 n=148 r=148
+[22:25:10] g_diagnostics.c:13> DBG_PERSIST_WRITE k=13 n=176 r=176
+[22:25:10] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[22:25:10] main.c:503> SYNC_RECORD_COMMITTED generation=796 result=0 core=148 sync=176 q=0
+[22:25:10] ocess_manager.c:506> Heap Usage for App <5x5>: Total Size <95720B> Used <1144B> Still allocated <0B>
