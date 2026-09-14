@@ -604,6 +604,7 @@ static void initialize_state(void) {
 static void load_state(void) {
   debug_diag_event(4, 0, 0);
   bool split_loaded = false;
+  bool legacy_loaded = false;
   /* Transactional state is authoritative. Legacy keys are not consulted
    * after this validated path succeeds. */
   {
@@ -623,6 +624,7 @@ static void load_state(void) {
         debug_diag_load_result(PERSIST_OK, metadata.generation, metadata.slot, s_state.weights);
         debug_diag_state("LOAD", s_state.weights, s_state.inventory_counts, PLATE_MAX_SIZES);
         split_loaded = true;
+        debug_diag_load_choice("legacy-skipped", STORAGE_SCHEMA_VERSION);
       }
     }
   }
@@ -802,6 +804,7 @@ static void load_state(void) {
     PersistedCoreState core = {0}; PersistedSyncState sync = {0};
     if (!persist_exists(STORAGE_KEY_SYNC) && persist_read_data(STORAGE_KEY_STATE, &s_state, sizeof s_state) == sizeof s_state && s_state.schema_version == STORAGE_SCHEMA_VERSION) {
       split_loaded = true;
+      legacy_loaded = true;
     } else if (persist_read_data(STORAGE_KEY_STATE, &core, sizeof core) == sizeof core &&
         core.schema_version == STORAGE_SCHEMA_VERSION) {
       memset(&s_state, 0, sizeof s_state); memcpy(&s_state, &core, sizeof core);
@@ -811,6 +814,7 @@ static void load_state(void) {
         s_state.completion_blocked = sync.completion_blocked; s_state.selected_reps = sync.selected_reps;
       }
       split_loaded = true;
+      legacy_loaded = true;
     }
   }
 validate_loaded:
@@ -833,6 +837,10 @@ validate_loaded:
     }
     uint32_t highest = sync_highest_retained_id(&s_state.outbox, &s_state.pending_record, s_state.pending_valid);
     if (highest > s_state.next_record_id) { s_state.next_record_id = highest; save_state(); }
+    if (legacy_loaded && !finish_legacy_migration()) {
+      /* Keep legacy keys when the transactional migration cannot commit. */
+      APP_LOG(APP_LOG_LEVEL_ERROR, "LEGACY_MIGRATION_RETAINED");
+    }
     s_selected_reps = s_state.selected_reps; return;
   }
   initialize_state();
