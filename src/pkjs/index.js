@@ -42,12 +42,22 @@ function sendQuery(p) {
   if(out) try { Pebble.sendAppMessage(out, function(){console.log('PROGRESS_SEND_OK id='+out.progress_id+' chunk='+out.progress_chunk_index);}, function(e){console.log('PROGRESS_SEND_FAILED id='+out.progress_id+' chunk='+out.progress_chunk_index+' code='+(e&&e.message||e||'unknown'));}); } catch(e) { console.log('PROGRESS_SEND_FAILED id='+(out.progress_id||out.calendar_id)+' chunk='+(out.progress_chunk_index||0)+' code='+e); }
 }
 function recordsEqual(a,b) { return !!a&&!!b&&['v','id','t','w','c','d'].every(function(k){return a[k]===b[k];})&&JSON.stringify(a.e)===JSON.stringify(b.e)&&JSON.stringify(a.wt)===JSON.stringify(b.wt)&&JSON.stringify(a.r)===JSON.stringify(b.r); }
+function recordValidationReason(record) {
+  var expected = record && record.w === 1 ? [0,3,4] : [0,1,2];
+  if (!record || record.v !== VERSION || !record.id || !Array.isArray(record.e) || record.e.length !== 3 || record.e.some(function(x,i){return x!==expected[i];})) return 'shape_or_exercises';
+  if (!Array.isArray(record.wt) || record.wt.length !== 3 || record.wt.some(function(x){return !Number.isInteger(x)||x<=0;})) return 'weights';
+  if (!Array.isArray(record.r) || (record.w !== 0 && record.w !== 1) || record.r.length !== (record.w ? 11 : 15) || record.r.some(function(x){return x<0||x>5||x%1;})) return 'reps_or_workout';
+  if (record.c !== 1 || (record.d||0)>31) return 'completion_or_date';
+  return null;
+}
 function store(record) {
   var expected = record && record.w === 1 ? [0,3,4] : [0,1,2];
+  var validationReason = recordValidationReason(record);
+  if (validationReason) { console.log('HISTORY_STORE_REJECTED id=' + (record && record.id || 0) + ' reason=' + validationReason); return false; }
   if (!record || record.v !== VERSION || !record.id || !Array.isArray(record.e) || record.e.length !== 3 || record.e.some(function(x,i){return x!==expected[i];}) || !Array.isArray(record.wt) || record.wt.length !== 3 || record.wt.some(function(x){return !Number.isInteger(x)||x<=0;}) || !Array.isArray(record.r) || (record.w !== 0 && record.w !== 1) || record.r.length !== (record.w ? 11 : 15) || record.r.some(function(x){return x<0||x>5||x%1;}) || record.c !== 1 || (record.d||0)>31) return false;
   var index = readIndex();
   var scan=scanHistory(); Object.keys(scan.records).forEach(function(id){if(index.ids.indexOf(id)<0)index.ids.push(id);}); index.nextChunk=Math.max(index.nextChunk||1,scan.maxChunk+1);
-  if (scan.records[String(record.id)]) { if(!recordsEqual(scan.records[String(record.id)],record)) return false; try { localStorage.setItem(INDEX_KEY,JSON.stringify(index)); return true; } catch(e){return false;} }
+  if (scan.records[String(record.id)]) { if(!recordsEqual(scan.records[String(record.id)],record)) { console.log('HISTORY_STORE_REJECTED id=' + record.id + ' reason=id_conflict'); return false; } try { localStorage.setItem(INDEX_KEY,JSON.stringify(index)); return true; } catch(e){ console.log('HISTORY_STORE_REJECTED id=' + record.id + ' reason=index_write'); return false; } }
   var number = index.nextChunk;
   var key;
   do { key = CHUNK_PREFIX + String(number++).padStart(4, '0'); } while (localStorage.getItem(key) !== null);
@@ -57,7 +67,7 @@ function store(record) {
     index.ids.push(String(record.id));
     localStorage.setItem(INDEX_KEY, JSON.stringify(index));
     console.log('HISTORY_CHUNK_WRITTEN id=' + record.id + ' key=' + key + ' index=ok'); return true;
-  } catch (e) { console.log('history storage failed'); return false; }
+  } catch (e) { console.log('HISTORY_STORE_REJECTED id=' + record.id + ' reason=storage_write'); return false; }
 }
 Pebble.addEventListener('ready', function() { console.log('5x5 sync ready'); });
 Pebble.addEventListener('appmessage', function(event) {
@@ -69,7 +79,7 @@ Pebble.addEventListener('appmessage', function(event) {
   console.log('HISTORY_RECORD_RX id=' + (record.id || 0) + ' workout=' + (record.w === 1 ? 'B' : 'A') + ' timestamp=' + (record.t || 0) + ' reps=' + ((record.r && record.r.length) || 0));
   if (record.v !== VERSION || !record.id || !Array.isArray(record.r)) { console.log('HISTORY_RECORD_REJECTED id=' + (record.id || 0) + ' reason=shape'); Pebble.sendAppMessage({ack: 0}); return; }
   if (store(record)) { var verified=scanHistory().records[String(record.id)]; if(!recordsEqual(verified,record)){console.log('HISTORY_VERIFY_FAILED id='+record.id);return;} console.log('HISTORY_RECORD_VALID id=' + record.id); console.log('HISTORY_VERIFY_VALID id='+record.id); console.log('HISTORY_ACK_SENT id=' + record.id); Pebble.sendAppMessage({ack: record.id}); }
-  else console.log('HISTORY_RECORD_REJECTED id=' + record.id + ' reason=validation_or_storage');
+  else console.log('HISTORY_RECORD_REJECTED id=' + record.id + ' reason=store_rejected');
 });
 
 // Exported for dependency-free tests under Node.
