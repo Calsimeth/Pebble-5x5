@@ -17,3 +17,4 @@ sh tests/test_screen_transitions.sh
 sh tests/test_back_navigation.sh
 sh tests/test_exercise_handoff.sh
 sh tests/test_setup_registration.sh
+sh tests/test_rep_default.sh
