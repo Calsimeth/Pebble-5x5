@@ -8,4 +8,5 @@ grep -q 's_screen == SCREEN_PROGRESS_PICKER).*query_send("progress_request"); up
 grep -q 's_screen == SCREEN_PROGRESS_GRAPH).*query_cancel(); s_screen=SCREEN_PROGRESS_PICKER; update_display(); return;' "$main"
 grep -q 's_screen == SCREEN_PROGRESS_PICKER || s_screen == SCREEN_HISTORY).*query_cancel(); show_home(); return;' "$main"
 grep -q 's_screen == SCREEN_HISTORY).*query_send("calendar_request");' "$main"
+grep -q 'if(!s_query_timer){query_timeout(NULL);return;}' "$main"
 echo 'screen transition guards passed'

@@ -339,7 +339,7 @@ static void back_navigation(ClickRecognizerRef recognizer, void *context);
 static void open_abandon_confirmation(void);
 static void query_send(const char *type) {
   DictionaryIterator *it;
-  if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); if(!s_query_timer) s_query_timer=app_timer_register(5000,query_timeout,NULL); APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_DEFERRED type=%s timer=%d",type,s_query_timer!=NULL); return; }
+  if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); if(!s_query_timer) s_query_timer=app_timer_register(5000,query_timeout,NULL); APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_DEFERRED type=%s timer=%d",type,s_query_timer!=NULL); if(!s_query_timer){query_timeout(NULL);return;} return; }
   if (!query_controller_begin(&s_query_controller,(uint16_t)(s_query_id+1))) return;
   if (!s_sync_ready || app_message_outbox_begin(&it) != APP_MSG_OK) { query_cancel(); return; }
   if (++s_query_id == 0) s_query_id=1;
