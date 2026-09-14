@@ -1,0 +1,16 @@
+[16:13:29] main.c:1548> SYNC_APP_DEINIT_SAVE
+[16:13:29] main.c:509> SYNC_RECORD_COMMITTED generation=1125 result=0 core=148 sync=176 q=3
+[16:13:29] ocess_manager.c:506> Heap Usage for App <5x5>: Total Size <96816B> Used <1144B> Still allocated <0B>
+[16:13:29] main.c:895> JS is NOT ready! Retrying!
+[16:13:29] ocess_manager.c:506> Heap Usage for App <DIN Time>: Total Size <108568B> Used <8884B> Still allocated <0B>
+[16:13:33] main.c:626> persist loaded generation=1125
+[16:13:33] main.c:1531> APP_MESSAGE_OPEN inbox=256 outbox=128 result=0
+[16:13:33] main.c:1532> SYNC_BOOT_STATE q=3 pending=1 blocked=0 adapter=0 ready=1
+[16:13:33] main.c:217> SYNC_SEND begin=0 bytes=114
+[16:13:33] main.c:219> SYNC_SEND send=0 bytes=114
+[16:13:33] pkjs> 5x5:? Pebble JS Bridge initialized.
+[16:13:33] pkjs> 5x5:168:56 5x5 sync ready
+[16:13:33] pkjs> 5x5:175:12 HISTORY_RECORD_RX id=1 workout=A timestamp=1789397830 reps=15
+[16:13:33] pkjs> 5x5:123:633) HISTORY_STORAGE_CAP length=true key=true nextChunk=2 indexedIds=1 probes=3
+[16:13:33] pkjs> 5x5:156:111) HISTORY_STORE_REJECTED id=1 reason=id_conflict
+[16:13:33] pkjs> 5x5:178:17 HISTORY_RECORD_REJECTED id=1 reason=store_rejected
