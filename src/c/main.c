@@ -1253,6 +1253,10 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
      * workout cannot consume it as a stale acknowledgement. */
     s_saved = false;
     s_state.completion_blocked = 0;
+    /* New workouts start at five reps. Once active, the persisted selector
+     * remains authoritative so deliberate 0-4 choices survive relaunch. */
+    s_state.selected_reps = 5;
+    s_selected_reps = 5;
     s_final_set_advance_authorized = false;
     final_set_transition_cancel(&s_final_transition);
     s_state.exercise_index = 0;

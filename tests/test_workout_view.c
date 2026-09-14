@@ -8,6 +8,8 @@ int main(void) {
   assert(workout_view_rep_up(4)==5 && workout_view_rep_up(5)==5);
   assert(workout_view_rep_down(1)==0 && workout_view_rep_down(0)==0);
   for (uint8_t n=0;n<=5;n++) { WorkoutViewModel current={.set_count=5,.completed_count=0,.selected_reps=n}; assert(workout_view_display_reps(&current,0)==n); }
+  assert(workout_view_rep_selected_valid(0) && workout_view_rep_selected_valid(4));
+  assert(workout_view_rep_up(0)==1 && workout_view_rep_down(5)==4);
   WorkoutViewModel m2={.set_count=5,.completed_count=2,.completed_reps={3,0},.selected_reps=2};
   assert(workout_view_display_reps(&m2,0)==3 && workout_view_display_reps(&m2,1)==0 && workout_view_display_reps(&m2,2)==2 && workout_view_display_reps(&m2,3)==5);
   WorkoutViewModel dead={.set_count=1,.completed_count=0,.selected_reps=2}; assert(workout_view_display_reps(&dead,0)==2); dead.completed_count=1; dead.completed_reps[0]=3; assert(workout_view_display_reps(&dead,0)==3);
