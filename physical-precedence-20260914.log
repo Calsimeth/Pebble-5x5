@@ -1,0 +1,139 @@
+[09:20:14] main.c:1172> SELECT screen=0 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:16] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:16] g_diagnostics.c:20> UI_WEIGHTS W=100,100,100,100,100
+[09:20:16] main.c:1347> SETUP_ADJUST dir=DOWN event=SHORT prior=400 result=380
+[09:20:16] g_diagnostics.c:15> SETUP_CHANGE i=0 old=100 new=95
+[09:20:17] main.c:1353> SYNC_SETUP_MUTATION weights=380 plates=0
+[09:20:17] g_diagnostics.c:16> SAVE_BEGIN reason=state W=95,100,100,100,100
+[09:20:17] g_diagnostics.c:12> DBG_EVENT 3 95 2
+[09:20:17] g_diagnostics.c:14> DBG_STATE_SAVE W=95,100,100,100,100 P=2,0,1,0,1,1,1
+[09:20:17] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[09:20:17] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[09:20:17] g_diagnostics.c:13> DBG_PERSIST_WRITE k=10 n=148 r=148
+[09:20:17] g_diagnostics.c:13> DBG_PERSIST_WRITE k=11 n=176 r=176
+[09:20:17] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[09:20:17] main.c:505> SYNC_RECORD_COMMITTED generation=879 result=0 core=148 sync=176 q=0
+[09:20:17] g_diagnostics.c:17> SAVE_COMMIT result=0 generation=879 slot=0 W=95,100,100,100,100
+[09:20:17] g_diagnostics.c:20> UI_WEIGHTS W=95,100,100,100,100
+[09:20:19] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:19] g_diagnostics.c:20> UI_WEIGHTS W=95,100,100,100,100
+[09:20:24] main.c:1364> BACK_SINGLE
+[09:20:24] g_diagnostics.c:20> UI_WEIGHTS W=95,100,100,100,100
+[09:20:25] main.c:1298> SETUP_ADJUST dir=UP event=SHORT prior=380 result=400
+[09:20:25] g_diagnostics.c:15> SETUP_CHANGE i=0 old=95 new=100
+[09:20:25] main.c:1302> SYNC_SETUP_MUTATION weights=400 plates=0
+[09:20:25] g_diagnostics.c:16> SAVE_BEGIN reason=state W=100,100,100,100,100
+[09:20:25] g_diagnostics.c:12> DBG_EVENT 3 100 2
+[09:20:25] g_diagnostics.c:14> DBG_STATE_SAVE W=100,100,100,100,100 P=2,0,1,0,1,1,1
+[09:20:25] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[09:20:25] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[09:20:25] g_diagnostics.c:13> DBG_PERSIST_WRITE k=12 n=148 r=148
+[09:20:25] g_diagnostics.c:13> DBG_PERSIST_WRITE k=13 n=176 r=176
+[09:20:25] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[09:20:25] main.c:505> SYNC_RECORD_COMMITTED generation=880 result=0 core=148 sync=176 q=0
+[09:20:25] g_diagnostics.c:17> SAVE_COMMIT result=0 generation=880 slot=1 W=100,100,100,100,100
+[09:20:25] g_diagnostics.c:20> UI_WEIGHTS W=100,100,100,100,100
+[09:20:27] main.c:1298> SETUP_ADJUST dir=UP event=SHORT prior=400 result=420
+[09:20:27] g_diagnostics.c:15> SETUP_CHANGE i=0 old=100 new=105
+[09:20:27] main.c:1302> SYNC_SETUP_MUTATION weights=420 plates=0
+[09:20:27] g_diagnostics.c:16> SAVE_BEGIN reason=state W=105,100,100,100,100
+[09:20:27] g_diagnostics.c:12> DBG_EVENT 3 105 2
+[09:20:27] g_diagnostics.c:14> DBG_STATE_SAVE W=105,100,100,100,100 P=2,0,1,0,1,1,1
+[09:20:27] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[09:20:27] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[09:20:27] g_diagnostics.c:13> DBG_PERSIST_WRITE k=10 n=148 r=148
+[09:20:27] g_diagnostics.c:13> DBG_PERSIST_WRITE k=11 n=176 r=176
+[09:20:27] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[09:20:27] main.c:505> SYNC_RECORD_COMMITTED generation=881 result=0 core=148 sync=176 q=0
+[09:20:27] g_diagnostics.c:17> SAVE_COMMIT result=0 generation=881 slot=0 W=105,100,100,100,100
+[09:20:27] g_diagnostics.c:20> UI_WEIGHTS W=105,100,100,100,100
+[09:20:33] main.c:1298> SETUP_ADJUST dir=UP event=SHORT prior=420 result=440
+[09:20:33] g_diagnostics.c:15> SETUP_CHANGE i=0 old=105 new=110
+[09:20:33] main.c:1302> SYNC_SETUP_MUTATION weights=440 plates=0
+[09:20:33] g_diagnostics.c:16> SAVE_BEGIN reason=state W=110,100,100,100,100
+[09:20:33] g_diagnostics.c:12> DBG_EVENT 3 110 2
+[09:20:33] g_diagnostics.c:14> DBG_STATE_SAVE W=110,100,100,100,100 P=2,0,1,0,1,1,1
+[09:20:33] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[09:20:34] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[09:20:34] g_diagnostics.c:13> DBG_PERSIST_WRITE k=12 n=148 r=148
+[09:20:34] g_diagnostics.c:13> DBG_PERSIST_WRITE k=13 n=176 r=176
+[09:20:34] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[09:20:34] main.c:505> SYNC_RECORD_COMMITTED generation=882 result=0 core=148 sync=176 q=0
+[09:20:34] g_diagnostics.c:20> UI_WEIGHTS W=110,100,100,100,100
+[09:20:35] main.c:1298> SETUP_ADJUST dir=UP event=SHORT prior=440 result=460
+[09:20:35] g_diagnostics.c:15> SETUP_CHANGE i=0 old=110 new=115
+[09:20:35] main.c:1302> SYNC_SETUP_MUTATION weights=460 plates=0
+[09:20:35] g_diagnostics.c:16> SAVE_BEGIN reason=state W=115,100,100,100,100
+[09:20:35] g_diagnostics.c:12> DBG_EVENT 3 115 2
+[09:20:35] g_diagnostics.c:14> DBG_STATE_SAVE W=115,100,100,100,100 P=2,0,1,0,1,1,1
+[09:20:35] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[09:20:35] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[09:20:35] g_diagnostics.c:13> DBG_PERSIST_WRITE k=10 n=148 r=148
+[09:20:35] g_diagnostics.c:13> DBG_PERSIST_WRITE k=11 n=176 r=176
+[09:20:35] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[09:20:35] main.c:505> SYNC_RECORD_COMMITTED generation=883 result=0 core=148 sync=176 q=0
+[09:20:35] g_diagnostics.c:17> SAVE_COMMIT result=0 generation=883 slot=0 W=115,100,100,100,100
+[09:20:35] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:43] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:43] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:43] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:43] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:44] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:44] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:44] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:44] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:45] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:45] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:45] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:46] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:46] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:46] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:46] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:46] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:46] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:47] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:47] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:47] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:48] main.c:1364> BACK_SINGLE
+[09:20:48] main.c:1364> BACK_SINGLE
+[09:20:48] main.c:1526> SYNC_APP_DEINIT_SAVE
+[09:20:48] g_diagnostics.c:21> APP_DEINIT
+[09:20:48] g_diagnostics.c:12> DBG_EVENT 2 0 0
+[09:20:48] g_diagnostics.c:16> SAVE_BEGIN reason=state W=115,100,100,100,100
+[09:20:48] g_diagnostics.c:12> DBG_EVENT 3 115 2
+[09:20:48] g_diagnostics.c:14> DBG_STATE_SAVE W=115,100,100,100,100 P=2,0,1,0,1,1,1
+[09:20:48] g_diagnostics.c:13> DBG_PERSIST_EXISTS k=14 n=0 r=1
+[09:20:48] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[09:20:48] g_diagnostics.c:13> DBG_PERSIST_WRITE k=12 n=148 r=148
+[09:20:48] g_diagnostics.c:13> DBG_PERSIST_WRITE k=13 n=176 r=176
+[09:20:48] g_diagnostics.c:13> DBG_PERSIST_WRITE k=14 n=8 r=8
+[09:20:48] main.c:505> SYNC_RECORD_COMMITTED generation=884 result=0 core=148 sync=176 q=0
+[09:20:48] g_diagnostics.c:17> SAVE_COMMIT result=0 generation=884 slot=1 W=115,100,100,100,100
+[09:20:48] ocess_manager.c:506> Heap Usage for App <5x5>: Total Size <94104B> Used <1144B> Still allocated <0B>
+[09:20:49] g_diagnostics.c:21> APP_BOOT
+[09:20:49] g_diagnostics.c:21> DBG_KEYS 3 12
+[09:20:49] g_diagnostics.c:12> DBG_EVENT 1 0 0
+[09:20:49] g_diagnostics.c:12> DBG_EVENT 4 0 0
+[09:20:49] g_diagnostics.c:13> DBG_PERSIST_READ k=14 n=8 r=8
+[09:20:49] g_diagnostics.c:13> DBG_PERSIST_READ k=12 n=148 r=148
+[09:20:49] g_diagnostics.c:13> DBG_PERSIST_READ k=13 n=176 r=176
+[09:20:49] main.c:622> persist loaded generation=884
+[09:20:49] g_diagnostics.c:18> LOAD_CHOICE source=transaction version=10
+[09:20:49] g_diagnostics.c:19> LOAD_RESULT result=0 generation=884 slot=1 W=115,100,100,100,100
+[09:20:49] g_diagnostics.c:14> DBG_STATE_LOAD W=115,100,100,100,100 P=2,0,1,0,1,1,1
+[09:20:49] g_diagnostics.c:18> LOAD_CHOICE source=legacy-skipped version=10
+[09:20:49] main.c:1513> APP_MESSAGE_OPEN inbox=256 outbox=128 result=0
+[09:20:50] pkjs> 5x5:? Pebble JS Bridge initialized.
+[09:20:50] pkjs> 5x5:157:56 5x5 sync ready
+[09:20:51] main.c:1172> SELECT screen=0 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:51] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:51] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:52] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:52] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:52] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:52] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:52] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:52] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:52] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:20:52] g_diagnostics.c:20> UI_WEIGHTS W=115,100,100,100,100
+[09:20:53] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0

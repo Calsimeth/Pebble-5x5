@@ -1,0 +1,12 @@
+[09:32:11] main.c:1364> BACK_SINGLE
+[09:32:11] main.c:1364> BACK_SINGLE
+[09:32:13] main.c:1364> BACK_SINGLE
+[09:32:13] main.c:1526> SYNC_APP_DEINIT_SAVE
+[09:32:13] main.c:505> SYNC_RECORD_COMMITTED generation=887 result=0 core=148 sync=176 q=0
+[09:32:13] ocess_manager.c:506> Heap Usage for App <StrongLift: Total Size <97440B> Used <1144B> Still allocated <0B>
+[09:32:15] main.c:622> persist loaded generation=887
+[09:32:15] main.c:1513> APP_MESSAGE_OPEN inbox=256 outbox=128 result=0
+[09:32:15] pkjs> StrongLifts:? Pebble JS Bridge initialized.
+[09:32:15] pkjs> StrongLifts:157:56 StrongLifts sync ready
+[09:32:17] main.c:1172> SELECT screen=0 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
+[09:32:17] main.c:1172> SELECT screen=1 workout=0 e=0 set=0 reps=0 warm=0 rest=0 saved=0 blocked=0 final=0/0
