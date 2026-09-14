@@ -9,4 +9,6 @@ bool query_controller_begin(QueryController *q, unsigned short id);
 bool query_controller_response(QueryController *q, bool valid, bool complete);
 void query_controller_fail(QueryController *q);
 bool query_controller_can_sync(const QueryController *q);
+bool query_controller_deferred_resume(QueryController *q);
+bool query_controller_deferred_timeout(QueryController *q);
 #endif

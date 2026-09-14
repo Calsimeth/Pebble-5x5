@@ -355,8 +355,8 @@ static void query_send(const char *type) {
 #endif
   if(s_query_connected){s_query_controller.state=QUERY_WAITING_RESPONSE;s_query_timer=app_timer_register(5000,query_timeout,NULL);if(!s_query_timer)query_cancel();}else query_cancel();
 }
-static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_peek(&s_state.outbox) && !s_sync_in_flight && s_sync_adapter.machine.state==SYNC_IDLE){char q[24];snprintf(q,sizeof q,"%s",s_deferred_query);s_deferred_query[0]=0;if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_DEFERRED_RESUME type=%s",q);query_send(q);} }
-static void query_timeout(void *ctx){(void)ctx;s_query_timer=NULL;query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest();update_display();}
+static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_peek(&s_state.outbox) && !s_sync_in_flight && s_sync_adapter.machine.state==SYNC_IDLE && query_controller_deferred_resume(&s_query_controller)){char q[24];snprintf(q,sizeof q,"%s",s_deferred_query);s_deferred_query[0]=0;if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_DEFERRED_RESUME type=%s",q);query_send(q);} }
+static void query_timeout(void *ctx){(void)ctx;s_query_timer=NULL;if(s_query_controller.state==QUERY_DEFERRED) query_controller_deferred_timeout(&s_query_controller); else query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_TIMEOUT state=PhoneNeeded");send_oldest();update_display();}
 
 static void workout_layer_update(Layer *layer, GContext *ctx) {
   if (!s_state.active || (s_state.warmup_active && !s_confirm_abandon) || s_screen != SCREEN_WORKOUT) return;
@@ -1517,6 +1517,10 @@ static void init(void) {
   sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
       sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,
       sync_cancel_adapter, NULL);
+  APP_LOG(APP_LOG_LEVEL_INFO, "SYNC_BOOT_STATE q=%u pending=%u blocked=%u adapter=%d ready=%d",
+      (unsigned)s_state.outbox.count, (unsigned)s_state.pending_valid,
+      (unsigned)s_state.completion_blocked, (int)s_sync_adapter.machine.state,
+      s_sync_ready ? 1 : 0);
   if (!sync_queue_valid(&s_state.outbox)) { s_state.outbox.count = 0; save_state(); }
   if (s_state.pending_valid && !sync_record_valid(&s_state.pending_record)) { s_state.pending_valid = 0; save_state(); }
   app_message_register_inbox_received(inbox_received); app_message_register_outbox_sent(sync_sent);
