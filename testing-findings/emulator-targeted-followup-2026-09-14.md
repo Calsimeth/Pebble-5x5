@@ -61,6 +61,16 @@ The previously stated “unavailable emulator controls” limitation is supersed
 
 **EMULATOR GATE: FAIL.** The Gabbro multi-chunk Progress failure is reproducible in the current installed build and blocks a full gate pass. No physical watch was used and no production source was modified.
 
+## Slice 12 post-remediation verification — commit f006cd6
+
+Retest identity: `f006cd6ce92bdace8634fdd52078b61398ebe319`; fixture-free bundle SHA-256 `c9894dd2bc5a7379b5b59b68a8e4962565c3b546b88a98a86b949c7e0025a3c1`. WSL2 preflight and tests passed. Separate Flint, Emery, and Gabbro installs each reported `Installing app...` and `App install succeeded.`
+
+- Flint: `s12-f006-flint.log` shows request `id=1`, phone response, `PROGRESS_ACCEPTED id=1`, `PROGRESS_RENDER graph points=3`, and `PROGRESS_SEND_OK`; `s12-f006-flint-result2.png` renders the graph. **PASS**.
+- Emery: `s12-f006-emery.log` shows request `id=1`, response chunks `0/2` (5 points) and `1/2` (1 point), acceptance of both, `PROGRESS_RENDER graph points=6`, and send success for both; `s12-f006-emery-result2.png` renders the graph. **PASS**.
+- Gabbro: `s12-f006-gabbro.log` shows request `id=1`, response chunks `0/2` (5 points) and `1/2` (2 points), acceptance of both, `PROGRESS_RENDER graph points=7`, and send success for both; `s12-f006-gabbro-result2.png` renders the graph. **PASS**.
+
+These were normal emulator-data records, not fixtures. The earlier pre-remediation Gabbro send failure is superseded for f006cd6. **SLICE 12 PROGRESS GATE: PASS.** Combined with the corrected relaunch evidence, the current emulator acceptance gate is **PASS** for the tested scope. No physical install was performed; unrelated dirty files were preserved.
+
 ## Gabbro relaunch evidence audit correction
 
 The earlier relaunch-failure wording was an evidence-labeling error. Direct inspection of the exact tracked PNGs shows `accept-gabbro-relaunch-home.png` is Home with `Continue`, while `accept-gabbro-relaunch-home2.png` and `accept-gabbro-relaunch-restored.png` both show `Next Exercise / Select to begin / Row`. The capture sequence was: exit from the handoff to Home, relaunch/install, capture Home with Continue, Select, then capture the restored handoff. No separate blank relaunch capture was found under these filenames, and no app root cause is asserted. The Gabbro relaunch classification is therefore corrected to **PASS**. The independently observed Gabbro Progress failure and closed emulator gate are unchanged.
