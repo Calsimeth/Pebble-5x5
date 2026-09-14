@@ -1,0 +1,32 @@
+[16:35:44] main.c:1186> SELECT screen=0 workout=1 e=0 set=0 reps=5 warm=1 rest=0 saved=0 blocked=0 final=0/0
+[16:35:44] main.c:351> CALENDAR_REQUEST id=2 year=2026 month=9 send=0
+[16:35:44] pkjs> ./src/pkjs/index.js:40:0 CALENDAR_REQUEST id=2 year=2026 month=9
+[16:35:44] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=1 workout=A utc=2026-9-3
+[16:35:44] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=2 workout=B utc=2026-9-3
+[16:35:44] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=3 workout=B utc=2026-9-3
+[16:35:44] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=4 workout=A utc=2026-9-3
+[16:35:44] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=5 workout=B utc=2026-9-3
+[16:35:44] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=6 workout=A utc=2026-9-3
+[16:35:44] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=7 workout=A utc=2026-9-14
+[16:35:44] pkjs> ./src/pkjs/index.js:40:0 HISTORY_SCAN valid=7
+[16:35:44] pkjs> ./src/pkjs/index.js:40:0 CALENDAR_RESPONSE id=2 mask=8196 a=8196 b=4
+[16:35:44] main.c:557> CALENDAR_RESPONSE id=2 year=2026 month=9 days=30 mask=8196 a=8196 b=4
+[16:35:45] main.c:557> CALENDAR_ACCEPTED expected_id=2 year=2026 month=9
+[16:35:45] main.c:315> CALENDAR_RENDER populated mask=8196
+[16:35:45] pkjs> ./src/pkjs/index.js:42:0 PROGRESS_SEND_OK id=undefined chunk=undefined
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[16:35:49] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
