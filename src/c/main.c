@@ -251,6 +251,10 @@ static bool allocate_record_id(PersistedState *state, uint32_t *out) {
 }
 static PlateInventory current_inventory(void) { return plate_inventory_from_counts(s_state.inventory_counts); }
 static void clear_warmup(void) { s_state.warmup_active = 0; s_state.warmup_index = 0; s_state.warmup_plan.count = 0; }
+/* Value 2 is a persisted handoff marker: the next exercise is selected but
+ * its warm-up has not started.  It uses the existing session field and keeps
+ * the handoff intact across a relaunch without changing the storage schema. */
+static void mark_exercise_handoff(void) { s_state.warmup_active = 2; s_state.warmup_index = 0; s_state.warmup_plan.count = 0; }
 static void generate_warmup(void) {
   PlateInventory inventory = current_inventory();
   s_state.warmup_plan = calculate_warmup_plan(current_weight(s_state.active_workout, s_state.exercise_index), &inventory);
@@ -827,7 +831,7 @@ validate_loaded:
       if (!weight_valid(s_state.active_weights[e])) s_state.active_weights[e] = future_weight(s_state.active_workout, e);
     for (size_t n = 0; n < PLATE_MAX_SIZES; n++) if (s_state.inventory_counts[n] > 2) s_state.inventory_counts[n] = DEFAULT_COUNTS[n];
     { PlateInventory inventory = current_inventory();
-      if (s_state.warmup_active && (!warmup_plan_valid(&s_state.warmup_plan,
+      if (s_state.warmup_active == 1 && (!warmup_plan_valid(&s_state.warmup_plan,
           current_weight(s_state.active_workout, s_state.exercise_index), &inventory) ||
           s_state.warmup_index >= s_state.warmup_plan.count)) { clear_warmup(); save_state(); }
     }
@@ -985,6 +989,13 @@ static void update_display(void) {
   }
 
   if (s_state.active && s_state.warmup_active && !s_show_plates) {
+    if (s_state.warmup_active == 2) {
+      snprintf(s_exercise_text, sizeof s_exercise_text, "Select to begin\n%s",
+               WORKOUTS[workout][s_state.exercise_index].name);
+      text_layer_set_text(s_title_layer, "Next Exercise");
+      text_layer_set_text(s_exercise_layer, s_exercise_text);
+      text_layer_set_text(s_hint_layer, "Select: start"); return;
+    }
     WarmupSet set = s_state.warmup_plan.sets[s_state.warmup_index];
     snprintf(s_exercise_text, sizeof s_exercise_text, "Warmup %d/%d\n%s\n%ld lb\n5 reps",
              s_state.warmup_index + 1, s_state.warmup_plan.count,
@@ -1054,6 +1065,9 @@ static void complete_set(void) {
           s_final_set_advance_authorized);
   if (s_state.completion_blocked) { APP_LOG(APP_LOG_LEVEL_INFO, "SET_COMPLETE blocked"); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
   if (s_state.warmup_active) {
+    if (s_state.warmup_active == 2) {
+      generate_warmup(); save_state(); update_display(); return;
+    }
     if (++s_state.warmup_index < s_state.warmup_plan.count) { save_state(); update_display(); return; }
     clear_warmup(); save_state();
     update_display(); return;
@@ -1154,7 +1168,7 @@ static void complete_set(void) {
       else { memcpy(s_state.weights, weights_before, sizeof weights_before); memcpy(s_state.failure_streaks, streaks_before, sizeof streaks_before); memcpy(s_state.deload_pending, pending_before, sizeof pending_before); memcpy(s_state.failure_reviewed, failure_reviewed_before, sizeof failure_reviewed_before); memcpy(s_state.plateau_reviewed, plateau_reviewed_before, sizeof plateau_reviewed_before); memcpy(s_state.gap_reviewed, gap_reviewed_before, sizeof gap_reviewed_before); s_state.active=active_before; s_state.exercise_index=exercise_before; s_state.set_index=set_before; s_state.next_workout=next_workout_before; s_state.last_completed=last_completed_before; s_state.completion_blocked=1; s_state.pending_valid=pending_valid_before; s_state.pending_record=pending_record_before; save_state(); snprintf(s_feedback, sizeof s_feedback, "Sync Required"); update_display(); return; }
       s_state.next_workout = s_state.active_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A;
       s_saved = true;
-    } else generate_warmup();
+    } else mark_exercise_handoff();
   }
   save_state();
   update_display();
