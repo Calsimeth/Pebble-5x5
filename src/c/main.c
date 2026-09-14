@@ -1517,10 +1517,6 @@ static void init(void) {
   sync_adapter_init(&s_sync_adapter, sync_queue_peek(&s_state.outbox) ? sync_queue_peek(&s_state.outbox)->id : 0,
       sync_begin_adapter, sync_write_adapter, sync_send_adapter, sync_timer_adapter,
       sync_cancel_adapter, NULL);
-  APP_LOG(APP_LOG_LEVEL_INFO, "SYNC_BOOT_STATE q=%u pending=%u blocked=%u adapter=%d ready=%d",
-      (unsigned)s_state.outbox.count, (unsigned)s_state.pending_valid,
-      (unsigned)s_state.completion_blocked, (int)s_sync_adapter.machine.state,
-      s_sync_ready ? 1 : 0);
   if (!sync_queue_valid(&s_state.outbox)) { s_state.outbox.count = 0; save_state(); }
   if (s_state.pending_valid && !sync_record_valid(&s_state.pending_record)) { s_state.pending_valid = 0; save_state(); }
   app_message_register_inbox_received(inbox_received); app_message_register_outbox_sent(sync_sent);
@@ -1533,6 +1529,10 @@ static void init(void) {
 #endif
   app_message_register_outbox_failed(sync_failed);
   AppMessageResult app_result = app_message_open(APP_MESSAGE_INBOX_SIZE, APP_MESSAGE_OUTBOX_SIZE); APP_LOG(APP_LOG_LEVEL_INFO,"APP_MESSAGE_OPEN inbox=%u outbox=%u result=%d",APP_MESSAGE_INBOX_SIZE,APP_MESSAGE_OUTBOX_SIZE,app_result); s_sync_ready = app_result == APP_MSG_OK;
+  APP_LOG(APP_LOG_LEVEL_INFO, "SYNC_BOOT_STATE q=%u pending=%u blocked=%u adapter=%d ready=%d",
+      (unsigned)s_state.outbox.count, (unsigned)s_state.pending_valid,
+      (unsigned)s_state.completion_blocked, (int)s_sync_adapter.machine.state,
+      s_sync_ready ? 1 : 0);
   if (s_state.pending_valid) { SyncPushResult result = sync_completion_promote(&s_state.outbox, &s_state.pending_record, true); if (result == SYNC_PUSH_ADDED || result == SYNC_PUSH_IDENTICAL) { s_state.pending_valid = 0; save_state(); } }
   if (s_sync_ready) send_oldest();
   s_window = window_create();
