@@ -339,7 +339,7 @@ static void back_navigation(ClickRecognizerRef recognizer, void *context);
 static void open_abandon_confirmation(void);
 static void query_send(const char *type) {
   DictionaryIterator *it;
-  if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); return; }
+  if (sync_queue_peek(&s_state.outbox) || s_sync_in_flight || s_sync_adapter.machine.state != SYNC_IDLE) { snprintf(s_deferred_query,sizeof s_deferred_query,"%s",type); query_controller_defer(&s_query_controller,true); if(!s_query_timer) s_query_timer=app_timer_register(5000,query_timeout,NULL); APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_DEFERRED type=%s timer=%d",type,s_query_timer!=NULL); return; }
   if (!query_controller_begin(&s_query_controller,(uint16_t)(s_query_id+1))) return;
   if (!s_sync_ready || app_message_outbox_begin(&it) != APP_MSG_OK) { query_cancel(); return; }
   if (++s_query_id == 0) s_query_id=1;
@@ -355,7 +355,7 @@ static void query_send(const char *type) {
 #endif
   if(s_query_connected){s_query_controller.state=QUERY_WAITING_RESPONSE;s_query_timer=app_timer_register(5000,query_timeout,NULL);if(!s_query_timer)query_cancel();}else query_cancel();
 }
-static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_peek(&s_state.outbox) && !s_sync_in_flight && s_sync_adapter.machine.state==SYNC_IDLE){char q[24];snprintf(q,sizeof q,"%s",s_deferred_query);s_deferred_query[0]=0;query_send(q);} }
+static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_peek(&s_state.outbox) && !s_sync_in_flight && s_sync_adapter.machine.state==SYNC_IDLE){char q[24];snprintf(q,sizeof q,"%s",s_deferred_query);s_deferred_query[0]=0;if(s_query_timer){app_timer_cancel(s_query_timer);s_query_timer=NULL;}APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_DEFERRED_RESUME type=%s",q);query_send(q);} }
 static void query_timeout(void *ctx){(void)ctx;s_query_timer=NULL;query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;send_oldest();update_display();}
 
 static void workout_layer_update(Layer *layer, GContext *ctx) {
