@@ -1,0 +1,13 @@
+[10:57:37] main.c:1186> SELECT screen=0 workout=1 e=0 set=0 reps=5 warm=1 rest=0 saved=0 blocked=0 final=0/0
+[10:57:37] main.c:351> CALENDAR_REQUEST id=1 year=2026 month=9 send=0
+[10:57:37] pkjs> ./src/pkjs/index.js:39:0 CALENDAR_REQUEST id=1 year=2026 month=9
+[10:57:37] pkjs> ./src/pkjs/index.js:27:0 HISTORY_STORAGE_CAP length=false key=true nextChunk=4 indexedIds=3 probes=5
+[10:57:37] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=1 workout=B utc=2026-9-3
+[10:57:37] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=2 workout=A utc=2026-9-3
+[10:57:37] pkjs> ./src/pkjs/index.js:32:0 HISTORY_RECORD id=3 workout=A utc=2026-9-14
+[10:57:37] pkjs> ./src/pkjs/index.js:39:0 HISTORY_SCAN valid=3
+[10:57:37] pkjs> ./src/pkjs/index.js:39:0 CALENDAR_RESPONSE id=1 mask=8196 a=8196 b=4
+[10:57:37] main.c:557> CALENDAR_RESPONSE id=1 year=2026 month=9 days=30 mask=8196 a=8196 b=4
+[10:57:37] main.c:557> CALENDAR_ACCEPTED expected_id=1 year=2026 month=9
+[10:57:37] main.c:315> CALENDAR_RENDER populated mask=8196
+[10:57:37] pkjs> ./src/pkjs/index.js:41:0 PROGRESS_SEND_OK id=undefined chunk=undefined

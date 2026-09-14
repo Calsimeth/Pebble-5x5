@@ -1,0 +1,27 @@
+[10:51:17] main.c:1186> SELECT screen=5 workout=0 e=2 set=0 reps=5 warm=2 rest=0 saved=0 blocked=0 final=0/0
+[10:51:17] main.c:352> PROGRESS_REQUEST id=1 exercise=0 page=0 send=0
+[10:51:17] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_REQUEST id=1 exercise=0 page=0
+[10:51:17] pkjs> ./src/pkjs/index.js:27:0 HISTORY_STORAGE_CAP length=false key=true nextChunk=7 indexedIds=6 probes=8
+[10:51:17] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_RESPONSE id=1 exercise=0 page=0 total=6 chunk=0/2 points=5
+[10:51:17] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_RESPONSE id=1 exercise=0 page=0 total=6 chunk=1/2 points=1
+[10:51:17] main.c:558> PROGRESS_RESPONSE id=1 exercise=0 page=0 chunk=0/2 points=5
+[10:51:17] main.c:558> PROGRESS_ACCEPTED id=1
+[10:51:17] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_SEND_OK id=1 chunk=2
+[10:51:17] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_SEND_FAILED id=1 chunk=2 code=[object Object]
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer
+[10:51:20] pkjs> [PHONESIM] [WARNING] Exception decoding QemuInboundPacket.footer

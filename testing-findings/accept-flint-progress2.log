@@ -1,0 +1,9 @@
+[10:58:01] main.c:1186> SELECT screen=0 workout=1 e=0 set=0 reps=5 warm=1 rest=0 saved=0 blocked=0 final=0/0
+[10:58:02] main.c:1186> SELECT screen=5 workout=1 e=0 set=0 reps=5 warm=1 rest=0 saved=0 blocked=0 final=0/0
+[10:58:02] main.c:352> PROGRESS_REQUEST id=2 exercise=0 page=0 send=0
+[10:58:02] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_REQUEST id=2 exercise=0 page=0
+[10:58:02] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_RESPONSE id=2 exercise=0 page=0 total=3 chunk=0/1 points=3
+[10:58:02] main.c:558> PROGRESS_RESPONSE id=2 exercise=0 page=0 chunk=0/1 points=3
+[10:58:02] main.c:558> PROGRESS_ACCEPTED id=2
+[10:58:02] main.c:558> PROGRESS_RENDER graph points=3
+[10:58:02] pkjs> ./src/pkjs/index.js:40:0 PROGRESS_SEND_OK id=2 chunk=1
