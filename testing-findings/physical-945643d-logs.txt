@@ -1,0 +1,53 @@
+[16:30:40] main.c:1548> SYNC_APP_DEINIT_SAVE
+[16:30:40] main.c:509> SYNC_RECORD_COMMITTED generation=1126 result=0 core=148 sync=176 q=3
+[16:30:40] ocess_manager.c:506> Heap Usage for App <5x5>: Total Size <96816B> Used <1144B> Still allocated <0B>
+[16:30:40] main.c:895> JS is NOT ready! Retrying!
+[16:30:40] ocess_manager.c:506> Heap Usage for App <DIN Time>: Total Size <108568B> Used <9040B> Still allocated <0B>
+[16:30:40] pkjs> DIN Time:905:11 PebbleKit JS ready!
+[16:30:43] main.c:626> persist loaded generation=1126
+[16:30:43] main.c:1531> APP_MESSAGE_OPEN inbox=256 outbox=128 result=0
+[16:30:43] main.c:1532> SYNC_BOOT_STATE q=3 pending=1 blocked=0 adapter=0 ready=1
+[16:30:43] main.c:217> SYNC_SEND begin=0 bytes=114
+[16:30:43] main.c:219> SYNC_SEND send=0 bytes=114
+[16:30:43] pkjs> 5x5:? Pebble JS Bridge initialized.
+[16:30:43] pkjs> 5x5:194:56 5x5 sync ready
+[16:30:43] pkjs> 5x5:201:12 HISTORY_RECORD_RX id=1 workout=A timestamp=1789397830 reps=15
+[16:30:43] pkjs> 5x5:123:633) HISTORY_STORAGE_CAP length=true key=true nextChunk=2 indexedIds=1 probes=3
+[16:30:43] pkjs> 5x5:175:14) HISTORY_ID_REMAP original=1 stored=3390373344
+[16:30:43] pkjs> 5x5:191:14) HISTORY_CHUNK_WRITTEN id=3390373344 key=historyChunk:0002 index=ok
+[16:30:43] pkjs> 5x5:204:278 HISTORY_RECORD_VALID id=1 stored=3390373344
+[16:30:43] pkjs> 5x5:204:356 HISTORY_VERIFY_VALID id=3390373344
+[16:30:43] pkjs> 5x5:204:408 HISTORY_ACK_SENT id=1
+[16:30:43] main.c:545> SYNC_ACK_RECEIVED id=1 head=1 matched=1
+[16:30:43] main.c:217> SYNC_SEND begin=0 bytes=106
+[16:30:43] pkjs> 5x5:201:12 HISTORY_RECORD_RX id=2 workout=B timestamp=1789398169 reps=11
+[16:30:43] main.c:219> SYNC_SEND send=0 bytes=106
+[16:30:43] pkjs> 5x5:191:14) HISTORY_CHUNK_WRITTEN id=2 key=historyChunk:0003 index=ok
+[16:30:43] main.c:509> SYNC_RECORD_COMMITTED generation=1127 result=0 core=148 sync=176 q=3
+[16:30:43] pkjs> 5x5:204:278 HISTORY_RECORD_VALID id=2 stored=2
+[16:30:43] pkjs> 5x5:204:356 HISTORY_VERIFY_VALID id=2
+[16:30:43] main.c:552> SYNC_ACK_COMMITTED id=1 promotion=0 q=3 pending=0 persistence=1
+[16:30:43] pkjs> 5x5:204:408 HISTORY_ACK_SENT id=2
+[16:30:44] main.c:545> SYNC_ACK_RECEIVED id=2 head=2 matched=1
+[16:30:44] main.c:217> SYNC_SEND begin=0 bytes=114
+[16:30:44] main.c:219> SYNC_SEND send=0 bytes=114
+[16:30:44] pkjs> 5x5:201:12 HISTORY_RECORD_RX id=3 workout=A timestamp=1789419175 reps=15
+[16:30:44] main.c:509> SYNC_RECORD_COMMITTED generation=1128 result=0 core=148 sync=176 q=2
+[16:30:44] main.c:552> SYNC_ACK_COMMITTED id=2 promotion=1 q=2 pending=0 persistence=1
+[16:30:44] pkjs> 5x5:191:14) HISTORY_CHUNK_WRITTEN id=3 key=historyChunk:0004 index=ok
+[16:30:44] pkjs> 5x5:204:278 HISTORY_RECORD_VALID id=3 stored=3
+[16:30:44] pkjs> 5x5:204:356 HISTORY_VERIFY_VALID id=3
+[16:30:44] pkjs> 5x5:204:408 HISTORY_ACK_SENT id=3
+[16:30:44] main.c:545> SYNC_ACK_RECEIVED id=3 head=3 matched=1
+[16:30:44] main.c:217> SYNC_SEND begin=0 bytes=106
+[16:30:44] pkjs> 5x5:201:12 HISTORY_RECORD_RX id=4 workout=B timestamp=1789419223 reps=11
+[16:30:44] main.c:219> SYNC_SEND send=0 bytes=106
+[16:30:44] pkjs> 5x5:191:14) HISTORY_CHUNK_WRITTEN id=4 key=historyChunk:0005 index=ok
+[16:30:44] pkjs> 5x5:204:278 HISTORY_RECORD_VALID id=4 stored=4
+[16:30:44] main.c:509> SYNC_RECORD_COMMITTED generation=1129 result=0 core=148 sync=176 q=1
+[16:30:44] pkjs> 5x5:204:356 HISTORY_VERIFY_VALID id=4
+[16:30:44] pkjs> 5x5:204:408 HISTORY_ACK_SENT id=4
+[16:30:44] main.c:552> SYNC_ACK_COMMITTED id=3 promotion=1 q=1 pending=0 persistence=1
+[16:30:44] main.c:545> SYNC_ACK_RECEIVED id=4 head=4 matched=1
+[16:30:44] main.c:509> SYNC_RECORD_COMMITTED generation=1130 result=0 core=148 sync=176 q=0
+[16:30:44] main.c:552> SYNC_ACK_COMMITTED id=4 promotion=1 q=0 pending=0 persistence=1
