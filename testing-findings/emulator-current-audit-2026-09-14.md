@@ -2,12 +2,14 @@
 
 ## Build and environment
 
-- Tested commit: `9e105cc178a5790828ecb1aa451323455b893bb8`
+- Tested checkout commit: `be5ef21830b5c3216d4525d1a235289cf7abd97` (`docs: record current emulator acceptance audit`).
+- Build source state: committed application code includes the handoff implementation; `3e39066` is an ancestor of the tested checkout. Dirty files at build time were `AGENTS.md`, `README.md`, `package.json`, and `wscript`; none changes application behavior under test, and the exact source/build identity is therefore the checkout plus these recorded metadata/build-script edits.
 - Build: normal Pebble production build; `STRONGLIFTS_DEBUG` unset; no fixture mode enabled.
 - WSL2 preflight: PASS (`Default Version: 2`, Ubuntu running, `WSL_OK`).
 - `npm test`: PASS. Output included transaction matrix, Workout A/B persistence and ACK reload, sync JS, screen transition guards, production Back/abandonment routing, exercise handoff acknowledgement, setup recognizer registration, and five-rep/zero-rep selection.
 - `pebble build`: PASS (`build finished successfully`).
 - Emulator installs: Flint PASS, Emery PASS, Gabbro PASS; each printed `Installing app...` and `App install succeeded.`
+- Installed artifact SHA-256: bundle `640319e8b7eeb6e39257f389feefd39c0079e380563c3d6d0fe3e4c40d3c6f61`; Flint ELF `b939b2b12474b8cdfa62f129c517b21fd0ef7aa6e2a9e570f02d7ae125029fe3`; Emery ELF `9679464461bd093f8437ab5060f61c641ce13cfe5fb5b64ea244856c7aa27c38`; Gabbro ELF `fe89985ff11d25702ddae975dad73f536ddd4d7e0d0ab27e4c74df681bf10e73`.
 - No source files were modified by this audit.
 
 ## Current-build evidence
@@ -20,11 +22,11 @@
 | Emery | [current-audit-emery-active2.png](current-audit-emery-active2.png) — `Squat 5x5 210 lb`, five `5` values | [current-audit-emery-reps4.png](current-audit-emery-reps4.png) — first circle `4` | PASS |
 | Gabbro | [current-audit-gabbro-active2.png](current-audit-gabbro-active2.png) — `Squat 5x5 185 lb`, five `5` values | [current-audit-gabbro-reps4.png](current-audit-gabbro-reps4.png) — first circle `4` | PASS |
 
-The production test suite separately passed the Flint zero-rep selection path. No emulator result contradicted the five-rep default.
+The production test suite separately passed the Flint zero-rep selection path. No emulator result contradicted the five-rep default. The earlier draft’s `9e105cc` attribution is superseded; all screenshots in this report are from the `be5ef21` checkout/build above.
 
 ### Back / Continue and exercise handoff
 
-- Flint: after recording five Squat sets, [current-audit-flint-post-squat.png](current-audit-flint-post-squat.png) visibly showed `Next Exercise`, `Select to begin`, and `Bench`. This is PASS for the explicit first boundary handoff.
+- Flint: after recording five Squat sets, [current-audit-flint-post-squat.png](current-audit-flint-post-squat.png) visibly showed `Next Exercise`, `Select to begin`, and `Bench`. This is PASS for the explicit first boundary handoff on the identified `be5ef21` build.
 - Emery and Gabbro: one recorded first Squat set produced Home with `Continue`, and selecting Continue restored the same `Squat 5x5` state with the first circle showing `4`; evidence: [current-audit-emery-home-continue.png](current-audit-emery-home-continue.png), [current-audit-emery-continue.png](current-audit-emery-continue.png), [current-audit-gabbro-home-continue.png](current-audit-gabbro-home-continue.png), and [current-audit-gabbro-continue.png](current-audit-gabbro-continue.png). PASS for Back/Continue restoration.
 - Emery/Gabbro full first-boundary handoff was not cleanly captured: retained state entered Deload and warmup screens during the attempted completion sequence. Result: UNVERIFIED, not FAIL.
 - Relaunch while paused at the handoff was not performed in this run. Result: UNVERIFIED on all platforms.
