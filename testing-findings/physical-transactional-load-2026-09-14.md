@@ -36,8 +36,8 @@ First divergence: none.
 
 ## Raw chronological logs
 
-- [physical-precedence-20260914.log](../physical-precedence-20260914.log) — baseline transaction load through generation 884.
-- [physical-debug-second-20260914.log](../physical-debug-second-20260914.log) — second debug relaunch through generation 887.
-- [physical-release-20260914.log](../physical-release-20260914.log) — release edit, normal exit, and relaunch through generation 890.
+- [physical-precedence-20260914.log](root-logs/physical-precedence-20260914.log) — baseline transaction load through generation 884.
+- [physical-debug-second-20260914.log](root-logs/physical-debug-second-20260914.log) — second debug relaunch through generation 887.
+- [physical-release-20260914.log](root-logs/physical-release-20260914.log) — release edit, normal exit, and relaunch through generation 890.
 
 The debug capture did not emit a `UI_WEIGHTS` line for the final screen redraw; the displayed debug array above is Caleb's direct physical readback, while the transactional source/generation is independently present in the preceding captured load sequence.

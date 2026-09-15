@@ -11,6 +11,9 @@
 /screenshots/*.png
 /testing-findings/*.png
 /testing-findings/acceptance-2026-09-02/
+/.local-artifacts/
+/testing-findings/root-captures/
+/testing-findings/root-logs/
 /*.log
 /testing-findings/*.log
 /testing-findings/*-logs.txt

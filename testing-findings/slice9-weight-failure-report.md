@@ -3,7 +3,7 @@
 This is one continuous `pebble logs --phone 192.168.8.120` capture from the
 debug build, installed over the existing app with the unchanged UUID and no
 wipe. The complete chronological output is preserved in
-`slice9-weight-failure-capture.log`.
+[`root-logs/slice9-weight-failure-capture.log`](root-logs/slice9-weight-failure-capture.log).
 
 Weights below are displayed pounds; the app stores quarter-pound units.
 

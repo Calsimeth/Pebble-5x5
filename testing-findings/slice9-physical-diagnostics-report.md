@@ -4,8 +4,9 @@ Build: debug `STRONGLIFTS_DEBUG=1`, normal UUID, installed over the existing
 application at `192.168.8.120` without uninstalling or wiping state.
 
 The complete chronological captures are in
-`physical-diagnostics-capture-2.log` and `physical-diagnostics-final.log` at
-the repository root. Both were written directly by
+[`root-logs/physical-diagnostics-capture-2.log`](root-logs/physical-diagnostics-capture-2.log) and
+[`root-logs/physical-diagnostics-final.log`](root-logs/physical-diagnostics-final.log) in the
+repository's raw-log folder. Both were written directly by
 `pebble logs --phone 192.168.8.120 | tee ...` and are committed alongside this
 report.
 

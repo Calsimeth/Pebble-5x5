@@ -6,7 +6,7 @@ This report describes one continuous debug-build `APP_LOG` session from the
 physical Pebble Time 2 at `192.168.8.120`. The debug build used the normal UUID
 and was installed over the existing app without uninstalling or wiping state.
 The complete raw capture is
-[`slice9-weight-failure-capture.log`](../slice9-weight-failure-capture.log).
+[`root-logs/slice9-weight-failure-capture.log`](root-logs/slice9-weight-failure-capture.log).
 
 Weights in the canonical diagnostic lines are display pounds. The application
 stores quarter-pound units internally (`WEIGHT_LB(lb) == lb * 4`).
