@@ -12,4 +12,7 @@ bool progress_assembly_complete(const ProgressAssembly *a);
 int graph_coordinate(int32_t value,int32_t min,int32_t max,int height);
 int graph_x_coordinate(uint8_t index,uint8_t count,int width);
 void graph_axis_bounds(int32_t observed_min,int32_t observed_max,bool includes_zero,int32_t *axis_min,int32_t *axis_max);
+uint8_t progress_picker_move(uint8_t selected,int8_t delta);
+typedef enum { PROGRESS_DISPLAY_LOADING, PROGRESS_DISPLAY_EMPTY, PROGRESS_DISPLAY_PHONE_NEEDED, PROGRESS_DISPLAY_GRAPH } ProgressDisplayState;
+ProgressDisplayState progress_display_state(bool connected,bool failed,bool complete,uint8_t point_count);
 #endif

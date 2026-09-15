@@ -30,3 +30,5 @@ void graph_axis_bounds(int32_t observed_min,int32_t observed_max,bool includes_z
   if(hi<=lo)hi=lo+25;
   *axis_min=lo;*axis_max=hi;
 }
+uint8_t progress_picker_move(uint8_t selected,int8_t delta){int next=(int)selected+delta;if(next<0)next=0;if(next>4)next=4;return (uint8_t)next;}
+ProgressDisplayState progress_display_state(bool connected,bool failed,bool complete,uint8_t point_count){if(!connected)return failed?PROGRESS_DISPLAY_PHONE_NEEDED:PROGRESS_DISPLAY_LOADING;if(complete&&point_count)return PROGRESS_DISPLAY_GRAPH;return complete?PROGRESS_DISPLAY_EMPTY:PROGRESS_DISPLAY_LOADING;}

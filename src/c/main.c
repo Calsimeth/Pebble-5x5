@@ -284,10 +284,10 @@ static void update_display(void);
 static void query_timeout(void *ctx);
 static void resume_deferred_query(void);
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
-typedef enum { FIXTURE_HISTORY, FIXTURE_NO_HISTORY, FIXTURE_PROGRESS, FIXTURE_NO_PROGRESS, FIXTURE_LOADING, FIXTURE_PHONE_NEEDED, FIXTURE_FINAL_VISIBLE, FIXTURE_COUNT } FixtureScenario;
+typedef enum { FIXTURE_HISTORY, FIXTURE_NO_HISTORY, FIXTURE_PROGRESS, FIXTURE_NO_PROGRESS, FIXTURE_LOADING, FIXTURE_PHONE_NEEDED, FIXTURE_PICKER, FIXTURE_FINAL_VISIBLE, FIXTURE_COUNT } FixtureScenario;
 static FixtureScenario s_fixture_scenario;
 static bool s_fixture_selector;
-static const char *fixture_name(void) { static const char *n[] = {"History Markers","No History","Progress Graph","No Progress","Loading","Phone Needed","Final Circle"}; return n[s_fixture_scenario]; }
+static const char *fixture_name(void) { static const char *n[] = {"History Markers","No History","Progress Graph","No Progress","Loading","Phone Needed","Progress Picker","Final Circle"}; return n[s_fixture_scenario]; }
 static void load_visual_fixture(void) {
   s_fixture_selector=true; s_fixture_scenario=FIXTURE_HISTORY; s_calendar_year=2026; s_calendar_month=8; s_progress_exercise=0; s_progress_page=0;
   s_calendar=(CalendarResponse){1,2026,8,31,(1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30),(1u<<2)|(1u<<17)|(1u<<30),(1u<<9)|(1u<<23)};
@@ -303,6 +303,7 @@ static void apply_visual_fixture(void) {
     s_fixture_selector=false; return;
   }
   if(s_fixture_scenario==FIXTURE_HISTORY || s_fixture_scenario==FIXTURE_NO_HISTORY){s_screen=SCREEN_HISTORY;s_calendar_valid=true;s_calendar.mask=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<2)|(1u<<9)|(1u<<17)|(1u<<23)|(1u<<30));s_calendar.mask_a=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<2)|(1u<<17)|(1u<<30));s_calendar.mask_b=s_fixture_scenario==FIXTURE_NO_HISTORY?0:((1u<<9)|(1u<<23));}
+  else if(s_fixture_scenario==FIXTURE_PICKER){s_screen=SCREEN_PROGRESS_PICKER;s_fixture_selector=false;}
   else {s_screen=SCREEN_PROGRESS_GRAPH;if(s_fixture_scenario==FIXTURE_PROGRESS){ProgressPoint p[5]={{1700000000,180},{1701000000,185},{1702000000,175},{1703000000,195},{1704000000,190}};progress_chunk_add(&s_progress_data,2,0,0,1,0,1,5,p);}else progress_chunk_add(&s_progress_data,2,0,0,0,0,1,0,0);}
   if(s_fixture_scenario==FIXTURE_LOADING){s_calendar_valid=false;s_query_connected=false;s_query_controller.state=QUERY_WAITING_RESPONSE;}
   if(s_fixture_scenario==FIXTURE_PHONE_NEEDED){s_calendar_valid=false;s_query_connected=false;s_query_controller.state=QUERY_FAILED;}
@@ -326,11 +327,12 @@ static void history_progress_draw(Layer *layer, GContext *ctx) {
     graphics_context_set_stroke_color(ctx,palette_primary_text()); for(int x=0;x<=7;x++) graphics_draw_line(ctx,GPoint(left+x*cw,top),GPoint(left+x*cw,top+ch*6)); for(int y=0;y<=6;y++) graphics_draw_line(ctx,GPoint(left,top+y*ch),GPoint(left+grid_width,top+y*ch));
   } else if(s_screen==SCREEN_PROGRESS_GRAPH && progress_assembly_complete(&s_progress_data) && s_progress_data.total_points) {
     int32_t min=INT32_MAX,max=INT32_MIN;for(uint8_t i=0;i<s_progress_data.total_points;i++){if(s_progress_data.points[i].w<min)min=s_progress_data.points[i].w;if(s_progress_data.points[i].w>max)max=s_progress_data.points[i].w;}
-    if(min!=INT32_MAX){int32_t axis_min,axis_max;bool includes_zero=false;for(uint8_t i=0;i<s_progress_data.total_points;i++)if(s_progress_data.points[i].w==0)includes_zero=true;graph_axis_bounds(min,max,includes_zero,&axis_min,&axis_max);int plot_top=44,plot_height=72;for(int32_t tick=axis_min;tick<=axis_max;tick+=25){graphics_context_set_stroke_color(ctx,(tick%50)==0?GColorLightGray:GColorDarkGray);int ty=plot_top+graph_coordinate(tick,axis_min,axis_max,plot_height);graphics_draw_line(ctx,GPoint(8,ty),GPoint(b.size.w-8,ty));}graphics_context_set_stroke_color(ctx,palette_accent());for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/(s_progress_data.total_points-1),x1=i*b.size.w/(s_progress_data.total_points-1);int y0=plot_top+graph_coordinate(s_progress_data.points[i-1].w,axis_min,axis_max,plot_height),y1=plot_top+graph_coordinate(s_progress_data.points[i].w,axis_min,axis_max,plot_height);graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}for(uint8_t i=0;i<s_progress_data.total_points;i++){int x=graph_x_coordinate(i,s_progress_data.total_points,b.size.w);int y=plot_top+graph_coordinate(s_progress_data.points[i].w,axis_min,axis_max,plot_height);graphics_fill_rect(ctx,GRect(x-2,y-2,5,5),0,GCornerNone);}char stats[64],range[32];struct tm *lo=localtime((time_t *)&s_progress_data.points[0].t),*hi=localtime((time_t *)&s_progress_data.points[s_progress_data.total_points-1].t);strftime(range,sizeof range,"%m/%d",lo);if(hi) {char tail[8];strftime(tail,sizeof tail,"-%m/%d",hi);strncat(range,tail,sizeof(range)-strlen(range)-1);}snprintf(stats,sizeof stats,"%s Min %ld Max %ld lb",range,(long)min,(long)max);graphics_draw_text(ctx,stats,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,120,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);graphics_draw_text(ctx,"Page 1/1",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,136,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);}
+    if(min!=INT32_MAX){int32_t axis_min,axis_max;bool includes_zero=false;for(uint8_t i=0;i<s_progress_data.total_points;i++)if(s_progress_data.points[i].w==0)includes_zero=true;graph_axis_bounds(min,max,includes_zero,&axis_min,&axis_max);int plot_top=44,plot_height=72,plot_inset=2;for(int32_t tick=axis_min;tick<=axis_max;tick+=25){graphics_context_set_stroke_color(ctx,(tick%50)==0?GColorLightGray:GColorDarkGray);int ty=plot_top+plot_inset+graph_coordinate(tick,axis_min,axis_max,plot_height-2*plot_inset);graphics_draw_line(ctx,GPoint(8,ty),GPoint(b.size.w-8,ty));}graphics_context_set_stroke_color(ctx,palette_accent());for(uint8_t i=1;i<s_progress_data.total_points;i++){int x0=(i-1)*b.size.w/(s_progress_data.total_points-1),x1=i*b.size.w/(s_progress_data.total_points-1);int y0=plot_top+plot_inset+graph_coordinate(s_progress_data.points[i-1].w,axis_min,axis_max,plot_height-2*plot_inset),y1=plot_top+plot_inset+graph_coordinate(s_progress_data.points[i].w,axis_min,axis_max,plot_height-2*plot_inset);graphics_draw_line(ctx,GPoint(x0,y0),GPoint(x1,y1));}for(uint8_t i=0;i<s_progress_data.total_points;i++){int x=graph_x_coordinate(i,s_progress_data.total_points,b.size.w);int y=plot_top+plot_inset+graph_coordinate(s_progress_data.points[i].w,axis_min,axis_max,plot_height-2*plot_inset);graphics_fill_rect(ctx,GRect(x-2,y-2,5,5),0,GCornerNone);}char stats[64],range[32];struct tm *lo=localtime((time_t *)&s_progress_data.points[0].t),*hi=localtime((time_t *)&s_progress_data.points[s_progress_data.total_points-1].t);strftime(range,sizeof range,"%m/%d",lo);if(hi) {char tail[8];strftime(tail,sizeof tail,"-%m/%d",hi);strncat(range,tail,sizeof(range)-strlen(range)-1);}snprintf(stats,sizeof stats,"%s Min %ld Max %ld lb",range,(long)min,(long)max);graphics_draw_text(ctx,stats,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,120,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);graphics_draw_text(ctx,"Page 1/1",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,136,b.size.w,16),GTextOverflowModeFill,GTextAlignmentCenter,NULL);}
     graphics_draw_text(ctx,SETUP_WEIGHT_NAMES[s_progress_exercise],fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,0,b.size.w,22),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
     graphics_draw_text(ctx,"lb",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(0,b.size.h-18,b.size.w,18),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
   } else {
-    const char *label = !s_query_connected ? (s_query_controller.state==QUERY_FAILED ? "Phone Needed" : "Loading") : (s_screen==SCREEN_HISTORY ? "No History" : "No Progress");
+    ProgressDisplayState state=progress_display_state(s_query_connected,s_query_controller.state==QUERY_FAILED,progress_assembly_complete(&s_progress_data),s_progress_data.total_points);
+    const char *label = state==PROGRESS_DISPLAY_PHONE_NEEDED ? "Phone Needed" : state==PROGRESS_DISPLAY_LOADING ? "Loading" : s_screen==SCREEN_HISTORY ? "No History" : "No Progress";
     graphics_context_set_fill_color(ctx,GColorWhite); graphics_draw_text(ctx,label,fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(0,30,b.size.w,26),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
   }
 }
@@ -863,6 +865,7 @@ validate_loaded:
 }
 
 static void update_display(void) {
+  if (s_exercise_layer) { GRect root_bounds=layer_get_bounds(window_get_root_layer(s_window)); layer_set_frame(text_layer_get_layer(s_exercise_layer), GRect(0, s_screen == SCREEN_PROGRESS_PICKER ? 50 : 58 + PBL_IF_ROUND_ELSE(8, 0), root_bounds.size.w, s_screen == SCREEN_PROGRESS_PICKER ? 88 : 100)); }
   bool dedicated = s_screen == SCREEN_HISTORY || s_screen == SCREEN_PROGRESS_GRAPH;
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(s_fixture_selector) dedicated=false;
@@ -908,7 +911,7 @@ static void update_display(void) {
   if (s_screen == SCREEN_PROGRESS_PICKER) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
     text_layer_set_text(s_title_layer, s_screen == SCREEN_HISTORY ? "History" : (s_screen == SCREEN_PROGRESS_PICKER ? "Progress" : "Progress Graph"));
-    if (s_screen == SCREEN_PROGRESS_PICKER) { snprintf(s_exercise_text,sizeof s_exercise_text,"%sSquat\n%sBench\n%sRow\n%sOHP\n%sDeadlift",s_progress_exercise==0?"> ":"  ",s_progress_exercise==1?"> ":"  ",s_progress_exercise==2?"> ":"  ",s_progress_exercise==3?"> ":"  ",s_progress_exercise==4?"> ":"  "); text_layer_set_font(s_exercise_layer,fonts_get_system_font(FONT_KEY_GOTHIC_18)); text_layer_set_text(s_exercise_layer,s_exercise_text); }
+    if (s_screen == SCREEN_PROGRESS_PICKER) { snprintf(s_exercise_text,sizeof s_exercise_text,"%sSquat\n%sBench\n%sRow\n%sOHP\n%sDeadlift",s_progress_exercise==0?"> ":"  ",s_progress_exercise==1?"> ":"  ",s_progress_exercise==2?"> ":"  ",s_progress_exercise==3?"> ":"  ",s_progress_exercise==4?"> ":"  "); text_layer_set_font(s_exercise_layer,fonts_get_system_font(FONT_KEY_GOTHIC_14)); text_layer_set_text(s_exercise_layer,s_exercise_text); }
     else if (!s_query_connected) text_layer_set_text(s_exercise_layer, "Phone Needed");
     else if (s_screen == SCREEN_HISTORY && !s_calendar_valid) text_layer_set_text(s_exercise_layer, "No History");
     else if (s_screen == SCREEN_HISTORY) { snprintf(s_exercise_text,sizeof s_exercise_text,"%d/%d",s_calendar_month,s_calendar_year); text_layer_set_text(s_exercise_layer,s_exercise_text); }
@@ -1309,7 +1312,7 @@ static void up_click(ClickRecognizerRef recognizer, void *context) {
   if (s_screen == SCREEN_HOME) { if (s_home_item > 0) s_home_item--; update_display(); return; }
   if (s_screen == SCREEN_WORKOUT_SELECT) { s_selected_workout = s_selected_workout == WORKOUT_A ? WORKOUT_B : WORKOUT_A; update_display(); return; }
   if (s_screen == SCREEN_HISTORY) { if (--s_calendar_month<1){s_calendar_month=12;s_calendar_year--;} query_send("calendar_request"); update_display(); return; }
-  if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise) s_progress_exercise--; update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_PICKER) { s_progress_exercise=progress_picker_move(s_progress_exercise,-1); update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_data.total && s_progress_page + 1 < s_progress_data.total) { s_progress_page++; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); } update_display(); return; }
   if (s_deload) {
     PlateInventory inventory = current_inventory();
@@ -1346,7 +1349,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
 #ifdef STRONGLIFTS_DEBUG
   if (s_screen == SCREEN_DIAGNOSTICS) { if (s_debug_clear_confirm) s_debug_clear_confirm=false; else s_debug_page++; update_display(); return; }
 #endif
-  if (s_screen == SCREEN_PROGRESS_PICKER) { if(s_progress_exercise<4) s_progress_exercise++; update_display(); return; }
+  if (s_screen == SCREEN_PROGRESS_PICKER) { s_progress_exercise=progress_picker_move(s_progress_exercise,1); update_display(); return; }
   if (s_screen == SCREEN_PROGRESS_GRAPH) { if (s_progress_page > 0) { s_progress_page--; progress_assembly_reset(&s_progress_data); s_query_connected=false; query_send("progress_request"); } update_display(); return; }
 #ifdef STRONGLIFTS_DEBUG
   if (s_screen == SCREEN_DIAGNOSTICS) { if (s_debug_clear_confirm) s_debug_clear_confirm=false; else if (s_debug_page) s_debug_page--; update_display(); return; }
