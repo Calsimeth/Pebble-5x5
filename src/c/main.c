@@ -371,11 +371,12 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     circle_x = (b.size.w - (circle_diameter * sets + circle_gap * (sets - 1))) / 2;
   }
   bool final_visible = final_set_transition_visible(&s_final_transition);
-  WorkoutViewModel view = {.set_count=sets, .completed_count=(handoff ? sets : (final_visible ? (uint8_t)(s_state.set_index + 1) : s_state.set_index)), .selected_reps=s_selected_reps, .confirmation=s_confirm_abandon};
+  WorkoutViewModel view = {.set_count=sets, .completed_count=(handoff ? sets : (final_visible ? (uint8_t)(s_state.set_index + 1) : s_state.set_index)), .selected_reps=s_selected_reps, .confirmation=s_confirm_abandon, .handoff=handoff};
   memcpy(view.completed_reps, s_state.work_reps[display_exercise], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
-  char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
-  snprintf(header, sizeof header, "%s  %dx5 %s", handoff ? "Completed" : WORKOUTS[s_state.active_workout][display_exercise].name, sets, weight);
+  char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, display_exercise), weight, sizeof weight);
+  if (handoff) snprintf(header, sizeof header, "%s complete", WORKOUTS[s_state.active_workout][display_exercise].name);
+  else snprintf(header, sizeof header, "%s  %dx5 %s", WORKOUTS[s_state.active_workout][display_exercise].name, sets, weight);
   graphics_draw_text(ctx, header, fonts_get_system_font(PBL_IF_ROUND_ELSE(FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18_BOLD)), GRect(PBL_IF_ROUND_ELSE(28, 6), 20, b.size.w - PBL_IF_ROUND_ELSE(56, 12), 24), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   if (workout_view_confirmation_visible(&view)) {
     graphics_context_set_fill_color(ctx, GColorBlack);
@@ -416,6 +417,14 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     }
     char reps[4]; snprintf(reps, sizeof reps, "%d", workout_view_display_reps(&view, n));
     graphics_draw_text(ctx, reps, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(x - circle_diameter / 2, y - 11, circle_diameter, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  }
+  if (workout_view_handoff_visible(&view)) {
+    WorkoutHandoffLayout prompt = workout_view_handoff_layout(b.size.w, b.size.h, PBL_IF_ROUND_ELSE(true, false));
+    char next[32]; snprintf(next, sizeof next, "Next: %s", WORKOUTS[s_state.active_workout][s_state.exercise_index].name);
+    graphics_context_set_text_color(ctx, GColorWhite);
+    graphics_draw_text(ctx, next, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(prompt.next_exercise.x, prompt.next_exercise.y, prompt.next_exercise.width, prompt.next_exercise.height), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    graphics_context_set_text_color(ctx, palette_accent());
+    graphics_draw_text(ctx, "SELECT to begin", fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD), GRect(prompt.select_instruction.x, prompt.select_instruction.y, prompt.select_instruction.width, prompt.select_instruction.height), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
 }
 

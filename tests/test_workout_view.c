@@ -25,11 +25,29 @@ int main(void) {
   WorkoutViewModel final_fail={.set_count=5,.completed_count=5,.completed_reps={5,5,5,5,2}};
   WorkoutViewModel deadlift={.set_count=1,.completed_count=1,.completed_reps={3}};
   assert(workout_view_display_reps(&final_a,4)==5 && workout_view_display_reps(&final_fail,4)==2 && workout_view_display_reps(&deadlift,0)==3);
+  final_a.handoff=true;
+  assert(workout_view_handoff_visible(&final_a));
+  final_a.completed_count=4; assert(!workout_view_handoff_visible(&final_a));
+  final_a.completed_count=5; final_a.handoff=false; assert(!workout_view_handoff_visible(&final_a));
   assert(!workout_view_final_transition_ready(true,1999) && workout_view_final_transition_ready(true,2000));
   WorkoutViewFrame clock=workout_view_clock_frame(180,180,true);
   assert(clock.x>=14 && clock.y>=14 && clock.x+clock.width<=166 && clock.y+clock.height<=166);
   clock=workout_view_clock_frame(144,168,false); assert(clock.x>=0 && clock.y>=0 && clock.x+clock.width<=144 && clock.y+clock.height<=168);
   WorkoutViewFrame warm=workout_view_warmup_frame(144,168,true);
   assert(warm.y+warm.height<=168-20);
+  const uint16_t widths[]={144,144,180}, heights[]={168,168,180};
+  const bool rounds[]={false,false,true};
+  for (uint8_t i=0;i<3;i++) {
+    WorkoutHandoffLayout handoff=workout_view_handoff_layout(widths[i],heights[i],rounds[i]);
+    WorkoutCircleLayout completed=workout_circle_layout(widths[i],heights[i],5);
+    int16_t circle_bottom=completed.y+completed.diameter;
+    if (i==0) circle_bottom+=14;
+    assert(handoff.next_exercise.x>=0 && handoff.next_exercise.y>=circle_bottom);
+    assert(handoff.next_exercise.x+handoff.next_exercise.width<=widths[i]);
+    assert(handoff.next_exercise.y+handoff.next_exercise.height<=handoff.select_instruction.y);
+    assert(handoff.select_instruction.x>=0 && handoff.select_instruction.y>=0);
+    assert(handoff.select_instruction.x+handoff.select_instruction.width<=widths[i]);
+    assert(handoff.select_instruction.y+handoff.select_instruction.height<=heights[i]);
+  }
   return 0;
 }

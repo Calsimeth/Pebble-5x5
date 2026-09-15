@@ -16,6 +16,9 @@ bool workout_view_model_valid(const WorkoutViewModel *model) {
 }
 
 bool workout_view_confirmation_visible(const WorkoutViewModel *model) { return model && model->confirmation; }
+bool workout_view_handoff_visible(const WorkoutViewModel *model) {
+  return model && model->handoff && model->completed_count == model->set_count;
+}
 bool workout_view_final_transition_ready(bool pending, uint32_t elapsed_ms) { return pending && elapsed_ms >= 2000; }
 WorkoutViewFrame workout_view_clock_frame(uint16_t width, uint16_t height, bool round) {
   int16_t inset = round ? 14 : 4;
@@ -24,6 +27,15 @@ WorkoutViewFrame workout_view_clock_frame(uint16_t width, uint16_t height, bool 
 WorkoutViewFrame workout_view_warmup_frame(uint16_t width, uint16_t height, bool mono) {
   (void)width; (void)mono;
   return (WorkoutViewFrame){4, 58, (int16_t)(width - 8), (int16_t)(height - 88)};
+}
+
+WorkoutHandoffLayout workout_view_handoff_layout(uint16_t width, uint16_t height, bool round) {
+  int16_t inset = round ? 18 : 4;
+  int16_t bottom = (int16_t)height - (round ? 16 : 4);
+  return (WorkoutHandoffLayout){
+    .next_exercise = {inset, (int16_t)(bottom - 48), (int16_t)(width - inset * 2), 24},
+    .select_instruction = {inset, (int16_t)(bottom - 24), (int16_t)(width - inset * 2), 24}
+  };
 }
 
 WorkoutCircleLayout workout_circle_layout(uint16_t width, uint16_t height, uint8_t set_count) {
