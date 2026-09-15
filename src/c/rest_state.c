@@ -1,4 +1,6 @@
 #include "rest_state.h"
+int rest_five_minute_alerted_from_end(int32_t rest_end) { return rest_end == REST_FIVE_MINUTE_ALERTED_END; }
+int32_t rest_end_with_five_minute_alert(int alerted) { return alerted ? REST_FIVE_MINUTE_ALERTED_END : 0; }
 uint32_t rest_elapsed(int32_t start, int32_t now) { return start > 0 && now >= start ? (uint32_t)(now-start) : 0; }
 int rest_valid(const RestState *r, int32_t now) { return r && r->active && r->start > 0 && now >= r->start; }
 int rest_alerts_due(RestState *r, int32_t now) {

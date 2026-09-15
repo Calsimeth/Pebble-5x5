@@ -18,6 +18,11 @@ int main(void) {
   assert(r.five_minute_alerted == 1);
   assert(rest_alerts_due(&r, 2600) == 0);
   r.five_minute_alerted = 1; rest_reset(&r); assert(!r.active && !r.five_minute_alerted);
+  assert(!rest_five_minute_alerted_from_end(0));
+  assert(rest_five_minute_alerted_from_end(rest_end_with_five_minute_alert(1)));
+  RestState restarted={.active=1,.start=100,.halfway_alerted=1,.completion_alerted=1,
+    .five_minute_alerted=rest_five_minute_alerted_from_end(rest_end_with_five_minute_alert(1))};
+  assert(rest_alerts_due(&restarted,401)==0);
   assert(rest_alerts_due(&r, 1301) == 0);
 
   /* Persisted alert flags remain one-shot across a restart. */
