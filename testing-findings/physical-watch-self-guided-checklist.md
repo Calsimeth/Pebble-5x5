@@ -2,6 +2,13 @@
 
 Use this whenever convenient. No live conversation or log session is required. This is for the release app already installed after the Slice 9 persistence fix. The weight edit → exit → relaunch check passed on September 14 and need not be repeated unless it fails again.
 
+## September 15 focused follow-up
+
+- **Five-minute rest alert: Pass.** The physical watch emitted the requested brief vibration at `5:00`.
+- **Exercise handoff prompt: Pass after `c5f429c`.** After a non-final exercise, the watch retained all five completed circles and visibly showed the next exercise with `SELECT to begin`. Pressing Select started the next warmup.
+
+These two items are complete and do not need to be repeated unless they regress.
+
 Date/time: 9/14/26 9:50 AM  App name shown: 5x5  Phone connected to Pebble: Yes
 
 For each check, mark **Pass / Fail / Not tested** and write what the watch actually showed. A screenshot or brief note is enough; do not try to reconstruct an exact button sequence afterward. Stop if continuing could create an unwanted workout record.
