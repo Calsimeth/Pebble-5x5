@@ -371,11 +371,11 @@ static void workout_layer_update(Layer *layer, GContext *ctx) {
     circle_x = (b.size.w - (circle_diameter * sets + circle_gap * (sets - 1))) / 2;
   }
   bool final_visible = final_set_transition_visible(&s_final_transition);
-  WorkoutViewModel view = {.set_count=sets, .completed_count=(final_visible ? (uint8_t)(s_state.set_index + 1) : s_state.set_index), .selected_reps=s_selected_reps, .confirmation=s_confirm_abandon};
-  memcpy(view.completed_reps, s_state.work_reps[s_state.exercise_index], sizeof view.completed_reps);
+  WorkoutViewModel view = {.set_count=sets, .completed_count=(handoff ? sets : (final_visible ? (uint8_t)(s_state.set_index + 1) : s_state.set_index)), .selected_reps=s_selected_reps, .confirmation=s_confirm_abandon};
+  memcpy(view.completed_reps, s_state.work_reps[display_exercise], sizeof view.completed_reps);
   graphics_context_set_text_color(ctx, GColorWhite);
   char weight[16], header[40]; weight_format(current_weight(s_state.active_workout, s_state.exercise_index), weight, sizeof weight);
-  snprintf(header, sizeof header, "%s  %dx5 %s", WORKOUTS[s_state.active_workout][s_state.exercise_index].name, sets, weight);
+  snprintf(header, sizeof header, "%s  %dx5 %s", handoff ? "Completed" : WORKOUTS[s_state.active_workout][display_exercise].name, sets, weight);
   graphics_draw_text(ctx, header, fonts_get_system_font(PBL_IF_ROUND_ELSE(FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18_BOLD)), GRect(PBL_IF_ROUND_ELSE(28, 6), 20, b.size.w - PBL_IF_ROUND_ELSE(56, 12), 24), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   if (workout_view_confirmation_visible(&view)) {
     graphics_context_set_fill_color(ctx, GColorBlack);
@@ -867,7 +867,7 @@ static void update_display(void) {
 #ifdef STRONGLIFTS_VISUAL_FIXTURES
   if(s_fixture_selector){text_layer_set_text(s_title_layer,"Visual Fixture");text_layer_set_text(s_exercise_layer,fixture_name());text_layer_set_text(s_hint_layer,"Up/Down choose Select");return;}
 #endif
-  set_workout_layer_visible(s_state.active && (!s_state.warmup_active || s_confirm_abandon) && s_screen == SCREEN_WORKOUT);
+  set_workout_layer_visible(s_state.active && (s_state.warmup_active != 1 || s_confirm_abandon) && s_screen == SCREEN_WORKOUT);
   if (s_screen == SCREEN_HOME) {
     text_layer_set_font(s_exercise_layer, fonts_get_system_font(s_state.active ? FONT_KEY_GOTHIC_14_BOLD : FONT_KEY_GOTHIC_18_BOLD));
     text_layer_set_text(s_title_layer, "5x5");
