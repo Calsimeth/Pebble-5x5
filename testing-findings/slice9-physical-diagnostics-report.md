@@ -1,4 +1,4 @@
-# Slice 9 physical diagnostics
+# persistence/synchronization physical diagnostics
 
 Build: debug `STRONGLIFTS_DEBUG=1`, normal UUID, installed over the existing
 application at `192.168.8.120` without uninstalling or wiping state.

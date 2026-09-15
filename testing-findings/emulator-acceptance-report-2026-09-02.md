@@ -6,7 +6,7 @@ Platforms: Flint, Emery, Gabbro
 
 ## Preparation
 
-- Required commits present: `36f90fe` (Slice 9 persistence tests) and `a5d12fc` (Slice 11 Workout/UI remediation).
+- Required commits present: `36f90fe` (persistence/synchronization persistence tests) and `a5d12fc` (Workout/UI interaction Workout/UI remediation).
 - WSL2 preflight passed: Ubuntu running under WSL 2; `WSL_OK` returned.
 - `npm test` passed, including production persistence and ACK reload tests.
 - Clean normal `pebble build` passed for Flint, Emery, and Gabbro.
@@ -82,7 +82,7 @@ The earlier attempt was discarded because the follow-up overview was accidentall
 6. The post-completion overview was not intentionally started. After an accidentally started follow-up session was ended through the app confirmation, Home visibly showed `New Workout`.
 7. Without another wipe or reinstall, History was opened from Home; after loading it visibly showed `No History` (`s9-correct-history-result-flint.png`).
 
-The production log did not expose the completed record ID, AppMessage send, matching nonzero ACK ID, requested or response calendar year/month, response mask, or expected-day bit. The required correlation therefore cannot distinguish outcome B, C, or D. The visible result is recorded as `BLOCKED — insufficient production observability for slice assignment`, not as a Slice 9 or Slice 12 defect.
+The production log did not expose the completed record ID, AppMessage send, matching nonzero ACK ID, requested or response calendar year/month, response mask, or expected-day bit. The required correlation therefore cannot distinguish outcome B, C, or D. The visible result is recorded as `BLOCKED — insufficient production observability for slice assignment`, not as a persistence/synchronization or History/Progress defect.
 
 ## Gate status
 
@@ -92,7 +92,7 @@ The complete E1–E24 matrix remains rejected. The corrected Flint sequence reac
 
 ## Follow-up audit
 
-After the one-time approved reset, no further destructive reset was performed. The full dependency-free suite was rerun in WSL with the bundled Node runtime and passed: transaction matrix, Workout A/B persistence and ACK reload, history/progress tests, and sync JS tests. The visible Flint `No History` result remains unassignable to Slice 9 versus Slice 12 because the emulator log surface did not expose the required record/ACK/calendar fields.
+After the one-time approved reset, no further destructive reset was performed. The full dependency-free suite was rerun in WSL with the bundled Node runtime and passed: transaction matrix, Workout A/B persistence and ACK reload, history/progress tests, and sync JS tests. The visible Flint `No History` result remains unassignable to persistence/synchronization versus History/Progress because the emulator log surface did not expose the required record/ACK/calendar fields.
 
 ## Targeted diagnostic amendment — Flint
 
@@ -123,7 +123,7 @@ CALENDAR_ACCEPTED expected_id=1 year=2026 month=9
 CALENDAR_RENDER No History mask=0
 ```
 
-The completed record ID and ACK ID both equal `3`; Workout identity is A; the timestamp and requested calendar month both identify September 2, 2026. For September 2026, the expected day-2 bit is `1 << 1 = 2`. The phone scan returned `valid=0` and the calendar mask was zero, while the watch rendered `No History`. This is outcome C: the record was received, validated, chunk-written, ACKed, and committed, but was omitted from the phone history scan/calendar result. Confirmed owning slice: Slice 12 (History/Progress).
+The completed record ID and ACK ID both equal `3`; Workout identity is A; the timestamp and requested calendar month both identify September 2, 2026. For September 2026, the expected day-2 bit is `1 << 1 = 2`. The phone scan returned `valid=0` and the calendar mask was zero, while the watch rendered `No History`. This is outcome C: the record was received, validated, chunk-written, ACKed, and committed, but was omitted from the phone history scan/calendar result. Confirmed owning slice: History/Progress (History/Progress).
 
 Evidence: `s9-targeted-overview-flint.png`, `s9-targeted-home-after-back-flint.png`, and `s9-targeted-history-flint.png` (the last shows `No History`).
 
@@ -137,7 +137,7 @@ Flint regressions also passed: populated History rendered the marked September 2
 
 Emery was installed with the same package and its current emulator had no stored records. Its observed `No History` and `No Progress` screens (`s12-regression-history-emery.png`, `s12-regression-progress-emery.png`) are empty-state evidence only; populated Emery behavior remains unverified. Gabbro was not run in this continuation. Therefore the complete E1–E24 gate remains rejected/unverified, and physical testing remains prohibited.
 
-## Slice 12 rediscovery rerun amendment
+## History/Progress rediscovery rerun amendment
 
 Build commit: `a44a8b1` (`Fix non-enumerable history discovery`), normal fixture-free build. Flint was not wiped. The required WSL2 preflight passed, the WSL production suite passed, and the build/install completed successfully.
 
@@ -166,11 +166,11 @@ PROGRESS_REQUEST id=2 exercise=0 page=0
 PROGRESS_RESPONSE id=2 exercise=0 page=0 total=3 chunk=0/1 points=3
 ```
 
-No accepted progress response or graph render occurred. This is a confirmed Slice 12 Progress failure. Because Flint’s targeted regression is not fully passing, Emery and Gabbro and the physical watch were not run.
+No accepted progress response or graph render occurred. This is a confirmed History/Progress Progress failure. Because Flint’s targeted regression is not fully passing, Emery and Gabbro and the physical watch were not run.
 
 ## 319ad1e transport regression update
 
-The current build commit is `319ad1e` (`Increase progress query inbox capacity`), with integrated Slice 12 history discovery. WSL2 preflight, the WSL production suite, normal fixture-free build, and Flint installation all passed. Flint’s targeted Progress result is `PASS`: query ID `1` was requested for Squat, the phone returned three points, and the watch logged `PROGRESS_RESPONSE id=1`, `PROGRESS_ACCEPTED id=1`, and `PROGRESS_RENDER graph points=3`. The inspected graph evidence is `s12-transport-progress-result-flint.png`.
+The current build commit is `319ad1e` (`Increase progress query inbox capacity`), with integrated History/Progress history discovery. WSL2 preflight, the WSL production suite, normal fixture-free build, and Flint installation all passed. Flint’s targeted Progress result is `PASS`: query ID `1` was requested for Squat, the phone returned three points, and the watch logged `PROGRESS_RESPONSE id=1`, `PROGRESS_ACCEPTED id=1`, and `PROGRESS_RENDER graph points=3`. The inspected graph evidence is `s12-transport-progress-result-flint.png`.
 
 Flint regression evidence: populated History rendered the September 2 date (`s12-regression-history2-flint.png`); an unrecorded exercise rendered `No Progress` (`s12-regression-empty-progress2-flint.png`).
 
@@ -332,7 +332,7 @@ The subsequent navigation attempt on Emery reopened a warm-up screen rather than
 
 Emery’s corrected post-completion Exercise Weights inspection is valid: Squat 55 lb, Bench 45 lb, Row 75 lb. Its relaunch attempt was captured separately (`e21-emery-relaunch2.png`) but did not yet reopen the weight editor for re-recording.
 
-Gabbro’s current screen is an unintended `Warmup 1/1 / Squat / 45 lb / 5 reps` state, so no post-workout weight claim is made for Gabbro. E21 remains open; no Slice 7 defect is assigned because the valid sequences have not produced a confirmed ordinary progression failure.
+Gabbro’s current screen is an unintended `Warmup 1/1 / Squat / 45 lb / 5 reps` state, so no post-workout weight claim is made for Gabbro. E21 remains open; no repetition/progression defect is assigned because the valid sequences have not produced a confirmed ordinary progression failure.
 ## FINAL AUDIT — 2026-09-02
 
 The following final results supersede earlier interim, stale, invalid-sequence, and observability notes in this report. E1–E24 are PASS on Flint, Emery, and Gabbro. E17 tactile strength/perception is PHYSICAL-ONLY; invocation timing and one-shot behavior are PASS. No emulator-testable case is BLOCKED, PARTIAL, or NOT TESTED in the final audit.

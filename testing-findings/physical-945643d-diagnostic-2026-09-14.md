@@ -12,7 +12,7 @@
 
 Raw capture: `physical-945643d-logs.txt`.
 
-On boot the watch reported `SYNC_BOOT_STATE q=3 pending=1`. The queued record `id=1` was sent and received by phone JS. The Slice 9 fix then emitted `HISTORY_ID_REMAP original=1 stored=3390373344`, `HISTORY_RECORD_VALID id=1 stored=3390373344`, `HISTORY_VERIFY_VALID id=3390373344`, and `HISTORY_ACK_SENT id=1`. The watch logged `SYNC_ACK_RECEIVED id=1`, followed by `SYNC_ACK_COMMITTED`.
+On boot the watch reported `SYNC_BOOT_STATE q=3 pending=1`. The queued record `id=1` was sent and received by phone JS. The persistence/synchronization fix then emitted `HISTORY_ID_REMAP original=1 stored=3390373344`, `HISTORY_RECORD_VALID id=1 stored=3390373344`, `HISTORY_VERIFY_VALID id=3390373344`, and `HISTORY_ACK_SENT id=1`. The watch logged `SYNC_ACK_RECEIVED id=1`, followed by `SYNC_ACK_COMMITTED`.
 
 Automatic retries for queued IDs 2, 3, and 4 also produced `HISTORY_RECORD_VALID`, `HISTORY_VERIFY_VALID`, `HISTORY_ACK_SENT`, matching `SYNC_ACK_RECEIVED`, and `SYNC_ACK_COMMITTED`. The queue progressed to `q=0` at `SYNC_ACK_COMMITTED id=4 ... q=0`.
 

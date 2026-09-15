@@ -10,7 +10,7 @@ Tested build: commit `12a5c65b744567dc47565675fd64b7f16e17689e`, normal fixture-
 | Emery | PASS |
 | Gabbro | PASS |
 
-Slice 7: **resolved**. Slice 11: **resolved**. Completion/send/matching ACK/queue removal: **PASS on all three**. Mixed success/failure progression: **PASS on all three**. Relaunch persistence: **PASS on all three**. History and Progress: **PASS**. No current emulator application defect remains.
+repetition/progression: **resolved**. Workout/UI interaction: **resolved**. Completion/send/matching ACK/queue removal: **PASS on all three**. Mixed success/failure progression: **PASS on all three**. Relaunch persistence: **PASS on all three**. History and Progress: **PASS**. No current emulator application defect remains.
 
 All older failures, incomplete attempts, and intermediate `GATE: REJECTED` statements below are historical evidence and are superseded by the later controlled `12a5c65` results. In particular, later Emery and Gabbro evidence supersedes every statement that mixed-progression relaunch evidence remains open.
 
@@ -111,11 +111,11 @@ A corrected retry started from the confirmed gray-circle work-set screen and iss
 
 Evidence: `retry-emery-deadlift-submit2.png`.
 
-## Slice 11 targeted retest
+## Workout/UI interaction targeted retest
 
-The corrected Emery setup established an active `Deadlift 1x5 / 95 lb` screen from Home `Continue`. A short Back press exited StrongLifts to the watch clock (`Press Down to access Timeline`) instead of returning Home with `Continue`. This is a valid **FAIL** for the Slice 11 short-Back behavior. Evidence: `s11-emery-active-established.png`, `s11-emery-short-back2.png`.
+The corrected Emery setup established an active `Deadlift 1x5 / 95 lb` screen from Home `Continue`. A short Back press exited StrongLifts to the watch clock (`Press Down to access Timeline`) instead of returning Home with `Continue`. This is a valid **FAIL** for the Workout/UI interaction short-Back behavior. Evidence: `s11-emery-active-established.png`, `s11-emery-short-back2.png`.
 
-Because a targeted Slice 11 defect remains, the emulator gate is **REJECTED** and no physical-watch installation or acceptance is authorized from this run.
+Because a targeted Workout/UI interaction defect remains, the emulator gate is **REJECTED** and no physical-watch installation or acceptance is authorized from this run.
 
 ## Commit 4bb1f00 targeted retest
 
@@ -123,7 +123,7 @@ Checkout and package identity: `4bb1f0037a7dfcae5501a250310b9eeb4e25b888` (`Cons
 
 Short-Back behavior passed on all three platforms: from active workout screens, a short Back returned to StrongLifts Home with `Continue`, not the watch clock. Evidence: `4bb1f00-flint-active.png`, `4bb1f00-flint-short-back.png`, `4bb1f00-emery-active.png`, `4bb1f00-emery-short-back.png`, `4bb1f00-gabbro-active.png`, `4bb1f00-gabbro-short-back.png`.
 
-The hold-confirmation retest was valid on Emery: Home showed `Continue`; Select restored active `Deadlift 1x5 / 95 lb`; a 1.5-second Back hold and release returned Home showing `Continue`, with no `End Workout?` confirmation. This is **FAIL** for the second Slice 11 fix. Evidence: `4bb1f00-emery-home-before-continue.png`, `4bb1f00-emery-active-before-hold.png`, `4bb1f00-emery-confirm2.png`.
+The hold-confirmation retest was valid on Emery: Home showed `Continue`; Select restored active `Deadlift 1x5 / 95 lb`; a 1.5-second Back hold and release returned Home showing `Continue`, with no `End Workout?` confirmation. This is **FAIL** for the second Workout/UI interaction fix. Evidence: `4bb1f00-emery-home-before-continue.png`, `4bb1f00-emery-active-before-hold.png`, `4bb1f00-emery-confirm2.png`.
 
 Because the targeted hold-confirmation defect remains, the gate is **REJECTED** and deferred Deadlift/completion/progression and physical-watch testing were not run.
 
@@ -135,7 +135,7 @@ Short Back passed on all three: after establishing active states through `Contin
 
 The long-hold confirmation failed on all three. After selecting `Continue` to restore the active workout, a 1.6-second Back hold followed by release returned Home showing `Continue`; `End Workout?` did not appear or remain visible. Evidence: `913d7bb-flint-confirm.png`, `913d7bb-emery-confirm.png`, `913d7bb-gabbro-confirm.png`.
 
-The targeted Slice 11 defect remains; emulator gate **REJECTED**. Deferred Deadlift/completion/persistence/ACK/progression tests and physical-watch testing were not run.
+The targeted Workout/UI interaction defect remains; emulator gate **REJECTED**. Deferred Deadlift/completion/persistence/ACK/progression tests and physical-watch testing were not run.
 
 ## Commit a95ecf5 targeted retest
 
@@ -145,9 +145,9 @@ Single Back passed on all three: after Continue restored an active workout, one 
 
 The revised double-Back contract failed on all three. Continue was selected to restore the active workout, then Back was clicked twice 150 ms apart. The resulting screens were system launcher/watchface screens, not `End Workout?`; no confirmation remained visible. Evidence: `a95-flint-double-confirm.png`, `a95-emery-double-confirm.png`, `a95-gabbro-double-confirm.png`.
 
-The Slice 11 interaction defect remains; emulator gate **REJECTED**. Deferred Deadlift/completion/persistence/ACK/progression tests and physical-watch testing were not run.
+The Workout/UI interaction interaction defect remains; emulator gate **REJECTED**. Deferred Deadlift/completion/persistence/ACK/progression tests and physical-watch testing were not run.
 
-### Slice 11 short-Back comparison — FAIL on Flint and Gabbro
+### Workout/UI interaction short-Back comparison — FAIL on Flint and Gabbro
 
 Flint: active `Warmup 1/1 / Squat / 45 lb / 5 reps`; short Back exited to the watch clock. Gabbro: active `Squat 5x5 / 55 lb` with three completed circles; short Back exited to the watch clock. Neither returned Home with `Continue`. This confirms the short-Back failure across Flint, Emery, and Gabbro.
 
@@ -235,22 +235,22 @@ Expected step 7: return to Home with `Continue`. Actual result: the active worko
 | Emery | FAIL — Back/Keep returns active workout, not Home with Continue | `acceptance-2026-09-03-emery-start.png`, `acceptance-2026-09-03-emery-active.png`, `acceptance-2026-09-03-emery-home-continue.png`, `acceptance-2026-09-03-emery-confirm1.png`, `acceptance-2026-09-03-emery-keep.png`, `acceptance-2026-09-03-emery-inactive.png` |
 | Gabbro | FAIL — Back/Keep returns active workout, not Home with Continue | `acceptance-2026-09-03-gabbro-start.png`, `acceptance-2026-09-03-gabbro-active.png`, `acceptance-2026-09-03-gabbro-home-continue.png`, `acceptance-2026-09-03-gabbro-confirm1.png`, `acceptance-2026-09-03-gabbro-keep.png`, `acceptance-2026-09-03-gabbro-inactive.png` |
 
-Owning slice: Slice 11. The reproducible failure is the Keep action’s destination. Deferred completion, synchronization, progression, and remaining gate tests were not run because this targeted requirement failed on every platform. Long Back and double Back were not tested because they are explicitly outside the current acceptance contract.
+Owning slice: Workout/UI interaction. The reproducible failure is the Keep action’s destination. Deferred completion, synchronization, progression, and remaining gate tests were not run because this targeted requirement failed on every platform. Long Back and double Back were not tested because they are explicitly outside the current acceptance contract.
 
 **Historical intermediate verdict — superseded by the authoritative final classification at the top of this report.**
 
-## 2026-09-03 correction — Slice 11 verdict superseded
+## 2026-09-03 correction — Workout/UI interaction verdict superseded
 
-The preceding Slice 11 assignment in this report is stale and is superseded by the approved interaction contract. For fixture-free commit `4c15c62807a47c4099ca2d32dfa1264c4c11821d`, the observed behavior is accepted:
+The preceding Workout/UI interaction assignment in this report is stale and is superseded by the approved interaction contract. For fixture-free commit `4c15c62807a47c4099ca2d32dfa1264c4c11821d`, the observed behavior is accepted:
 
 - Active workout → one Back → StrongLifts Home with `Continue` and `End Workout`.
 - Home `End Workout` → `End Workout?`.
 - Confirmation Back/Keep → the unchanged active workout directly; this is intentional, not a defect.
 - Reopening the confirmation and Select/End abandons the workout; inactive Home no longer offers `Continue` or `End Workout`.
 
-The current-build captures show the active state restored unchanged after Keep (exercise, weight, and set-circle/repetition state): `acceptance-2026-09-03-flint-keep.png`, `acceptance-2026-09-03-emery-keep.png`, and `acceptance-2026-09-03-gabbro-keep.png`. The prior `*-inactive.png` captures were contaminated by scripted follow-up navigation and are not used as visual proof; the End path was nevertheless exercised under the accepted sequence. Slice 11 is therefore **PASS** on Flint, Emery, and Gabbro. Remove the prior Slice 11 defect assignment from interpretation; it no longer blocks deferred testing.
+The current-build captures show the active state restored unchanged after Keep (exercise, weight, and set-circle/repetition state): `acceptance-2026-09-03-flint-keep.png`, `acceptance-2026-09-03-emery-keep.png`, and `acceptance-2026-09-03-gabbro-keep.png`. The prior `*-inactive.png` captures were contaminated by scripted follow-up navigation and are not used as visual proof; the End path was nevertheless exercised under the accepted sequence. Workout/UI interaction is therefore **PASS** on Flint, Emery, and Gabbro. Remove the prior Workout/UI interaction defect assignment from interpretation; it no longer blocks deferred testing.
 
-## 2026-09-03 — edbc700 Slice 11 correction
+## 2026-09-03 — edbc700 Workout/UI interaction correction
 
 Fixture-free commit `edbc7004f4cfc74f152006cfa58e26822f3a2e14` was installed on Flint, Emery, and Gabbro; each install reported `Installing app...` and `App install succeeded.` The targeted contract passed:
 
@@ -262,7 +262,7 @@ Fixture-free commit `edbc7004f4cfc74f152006cfa58e26822f3a2e14` was installed on 
 
 Exact checkpoint evidence: `edbc700-flint-active-progress.png`, `edbc700-flint-home-continue.png`, `edbc700-flint-continue-restored.png`, `edbc700-flint-confirm-keep.png`, `edbc700-flint-keep-restored.png`, `edbc700-flint-end-home.png`; corresponding Emery files `edbc700-emery-start.png`, `edbc700-emery-restored.png`, `edbc700-emery-confirm.png`, `edbc700-emery-keep.png`, `edbc700-emery-end-home.png`; and Gabbro files `edbc700-gabbro-start.png`, `edbc700-gabbro-restored.png`, `edbc700-gabbro-confirm.png`, `edbc700-gabbro-keep.png`, `edbc700-gabbro-relaunch.png`, `edbc700-gabbro-relaunched-app.png`.
 
-This supersedes the earlier `4c15c628` Slice 11 failure assignment. Slice 11 is **PASS** on Flint, Emery, and Gabbro. Long Back and double Back were not tested because they are outside the acceptance contract.
+This supersedes the earlier `4c15c628` Workout/UI interaction failure assignment. Workout/UI interaction is **PASS** on Flint, Emery, and Gabbro. Long Back and double Back were not tested because they are outside the acceptance contract.
 
 ## 2026-09-03 — edbc700 Flint completion/ACK
 
@@ -291,15 +291,15 @@ Record ID and ACK ID both equal `4`; Workout identity is `B`; queue insertion is
 
 ### edbc700 Flint mixed progression — FAIL
 
-After the completed Workout B, Flint started an explicitly selected Workout A. Squat was completed successfully. Bench was set to `4` with Down and recorded as four repetitions at `45 lb`; the remaining Bench sets were completed. The next valid work screen was `Row 5x5 75 lb` with gray circles. A single Select on that screen produced no red circle or advancement; after a two-second wait the screen remained unchanged. This is a reproducible current-build failure in the mixed success/failure progression path under the correct screen/button sequence. Result: **FAIL**, owning slice **Slice 7**; no relaunch weight result or cross-platform progression run was attempted after this failure. Evidence: `edbc700-flint-a-warmup2.png`, `edbc700-flint-a-bench-entry.png`, `edbc700-flint-a-bench-four.png`, `edbc700-flint-a-bench-four-recorded.png`, `edbc700-flint-a-completed.png`, `edbc700-flint-a-completed2.png`, `edbc700-flint-row-submit-one.png`, `edbc700-flint-row-after-wait.png`.
+After the completed Workout B, Flint started an explicitly selected Workout A. Squat was completed successfully. Bench was set to `4` with Down and recorded as four repetitions at `45 lb`; the remaining Bench sets were completed. The next valid work screen was `Row 5x5 75 lb` with gray circles. A single Select on that screen produced no red circle or advancement; after a two-second wait the screen remained unchanged. This is a reproducible current-build failure in the mixed success/failure progression path under the correct screen/button sequence. Result: **FAIL**, owning slice **repetition/progression**; no relaunch weight result or cross-platform progression run was attempted after this failure. Evidence: `edbc700-flint-a-warmup2.png`, `edbc700-flint-a-bench-entry.png`, `edbc700-flint-a-bench-four.png`, `edbc700-flint-a-bench-four-recorded.png`, `edbc700-flint-a-completed.png`, `edbc700-flint-a-completed2.png`, `edbc700-flint-row-submit-one.png`, `edbc700-flint-row-after-wait.png`.
 
 ### edbc700 Emery mixed progression — completion path PASS
 
 Emery started an explicitly selected Workout A. Squat completed successfully; Bench recorded an intentional four-repetition set and then completed its remaining sets; Row reached a valid work screen with its first completed circle and the remaining sets completed. The app reached the Workout B overview showing `Workout B / Squat 100 lb / OHP 55 lb / Deadlift 105 lb`, with no `Save failed` or `Sync Required`. Evidence: `edbc700-emery-progression-start.png`, `edbc700-emery-progression-bench.png`, `edbc700-emery-progression-row.png`, `edbc700-emery-progression-after.png`. Exact starting-weight and relaunch-persistence checkpoints were not captured, so the full progression-persistence assertion remains open for Emery.
 
-### Correction to Slice 11 End result — Flint FAIL
+### Correction to Workout/UI interaction End result — Flint FAIL
 
-The accepted sequence was retested explicitly on Flint: Home with `Continue` → Down to `End Workout` → Select → confirmation `End Workout?` → Select for `End`. The immediate post-End screen displayed a `Workout A` overview with `Squat 70 lb`, `Bench 45 lb`, `Row 75 lb`, and `Sel:start / Dn:setup`, rather than inactive Home. One subsequent Back reached Home with `New Workout`, proving the session was cleared but not that End returned directly to inactive Home. This is a reproducible application failure under the documented sequence and reopens a Slice 11 assignment for Flint. Evidence: `acceptance-2026-09-03-flint-recovery-home.png`, `acceptance-2026-09-03-flint-recovery-confirm.png`, `acceptance-2026-09-03-flint-inactive-home.png`, `acceptance-2026-09-03-flint-after-end-back.png`. Deferred testing was stopped; no physical testing is authorized.
+The accepted sequence was retested explicitly on Flint: Home with `Continue` → Down to `End Workout` → Select → confirmation `End Workout?` → Select for `End`. The immediate post-End screen displayed a `Workout A` overview with `Squat 70 lb`, `Bench 45 lb`, `Row 75 lb`, and `Sel:start / Dn:setup`, rather than inactive Home. One subsequent Back reached Home with `New Workout`, proving the session was cleared but not that End returned directly to inactive Home. This is a reproducible application failure under the documented sequence and reopens a Workout/UI interaction assignment for Flint. Evidence: `acceptance-2026-09-03-flint-recovery-home.png`, `acceptance-2026-09-03-flint-recovery-confirm.png`, `acceptance-2026-09-03-flint-inactive-home.png`, `acceptance-2026-09-03-flint-after-end-back.png`. Deferred testing was stopped; no physical testing is authorized.
 
 ## 2026-09-03 continuation — other previously recorded failures
 
@@ -310,7 +310,7 @@ The current commit remained `4c15c62807a47c4099ca2d32dfa1264c4c11821d`. No sourc
 - Progress: PASS on Emery. Selecting Squat resolved to a graph showing `Squat`, plotted points, `09/03-09/03`, `Min 180`, `Max 280 lb`, and `Page 1/1`. Evidence: `acceptance-2026-09-03-emery-progress-current.png`.
 - Emery’s intermediate navigation sequence opened Progress Picker rather than History, so no Emery History result is assigned from that capture; it is a navigation-sequence limitation, not an application defect.
 
-The previously recorded final-set/Workout B Deadlift, synchronization/ACK, and mixed success/failure progression failures remain without a fresh current-commit end-to-end retest in this continuation. The confirmed Slice 11 Keep-destination failure is sufficient to keep the gate rejected; no physical testing was performed.
+The previously recorded final-set/Workout B Deadlift, synchronization/ACK, and mixed success/failure progression failures remain without a fresh current-commit end-to-end retest in this continuation. The confirmed Workout/UI interaction Keep-destination failure is sufficient to keep the gate rejected; no physical testing was performed.
 
 ### Current-run invalid navigation evidence
 
@@ -367,7 +367,7 @@ Flint and Gabbro were then directly tested from Home → `Progress` → `Progres
 | Weight hold/step jump | Resolved on Flint, Emery, and Gabbro; current screenshots show 5-lb short and held adjustments in both directions. |
 | Workout selection/back semantics | Valid selector path works on Emery; Flint/Gabbro current attempt was invalid because menu state was not established before the click sequence. Not yet cross-platform current-build verified. |
 | Final circle advances too early | Resolved in the accepted paced evidence; Emery current-build completion evidence also shows the final set recorded before transition. |
-| Active-workout exit/reopen | Single Back to Home with Continue is resolved; current Back/Keep destination remains a reproducible Slice 11 failure on all three. |
+| Active-workout exit/reopen | Single Back to Home with Continue is resolved; current Back/Keep destination remains a reproducible Workout/UI interaction failure on all three. |
 | Failed set below five reps | Previously passed; no contrary current evidence. |
 | Rest beyond three minutes | Previously passed; no contrary current evidence. |
 | Rest vibration distinction/retrigger | Invocation supported by production tests/log evidence; tactile perception remains physical-only. |
@@ -383,9 +383,9 @@ Emery’s dedicated relaunch checkpoint verified the resulting Squat value: post
 
 Gabbro’s current progression attempt reached a valid Bench checkpoint showing `4` selected, but the follow-up actions no longer preserved that screen; the next capture showed `Squat 5x5 75 lb` with three red and two gray circles. The sequence is rejected as contaminated and does not classify Gabbro progression. The failed command issued outside WSL during this attempt produced only a Windows “pebble not recognized” error and performed no emulator action; all subsequent Pebble actions were run through WSL.
 
-## 2026-09-03 — Slice 7 resolution at `12a5c65`
+## 2026-09-03 — repetition/progression resolution at `12a5c65`
 
-Slice 7 is resolved by commit `12a5c65b744567dc47565675fd64b7f16e17689e` (`Fix stale completion state swallowing workout Select`). This supersedes the earlier `edbc700` Flint Row submission failure; Slice 7 is no longer assigned a defect. Slice 11 remains unchanged and its accepted confirmation behavior is not rerun here.
+repetition/progression is resolved by commit `12a5c65b744567dc47565675fd64b7f16e17689e` (`Fix stale completion state swallowing workout Select`). This supersedes the earlier `edbc700` Flint Row submission failure; repetition/progression is no longer assigned a defect. Workout/UI interaction remains unchanged and its accepted confirmation behavior is not rerun here.
 
 Evidence cited for the resolution:
 
@@ -414,7 +414,7 @@ The current-build synchronization retest was completed on Flint, Emery, and Gabb
 
 Inspected completion evidence: `12a5c65-flint-b-complete2.png`, `12a5c65-emery-final.png`, and `12a5c65-gabbro-b-complete.png`. PHONESIM footer-decoding warnings appeared in Emery and Gabbro logs but did not prevent matching ACK or queue removal. A prior Emery attempt that landed on `Bench 5x5` was invalid navigation evidence and is excluded.
 
-This resolves the fresh completion → send → matching ACK → queue-removal case on all three platforms for `12a5c65`. No new Slice 7 or Slice 11 test was performed.
+This resolves the fresh completion → send → matching ACK → queue-removal case on all three platforms for `12a5c65`. No new repetition/progression or Workout/UI interaction test was performed.
 
 ### Flint mixed success/failure progression retest
 
@@ -422,17 +422,17 @@ A valid current-build Flint run was completed from inactive Home using `New Work
 
 Result: **PASS** for the current-build mixed progression behavior on Flint: successful Squat and Row advanced independently, while failed Bench remained at its starting weight. Evidence: `12a5c65-flint-progression-overview.png`, `12a5c65-flint-progression-bench-four.png`, `12a5c65-flint-progression-bench-recorded.png`, `12a5c65-flint-progression-row-warmup.png`, `12a5c65-flint-progression-complete.png`, `12a5c65-flint-progression-weights.png`, `12a5c65-flint-progression-bench-weight.png`, and `12a5c65-flint-progression-row-weight.png`.
 
-This intermediate note is superseded by the later current-commit relaunch evidence for Flint, Emery, and Gabbro, which proves PASS. No application defect is assigned from the earlier stale Slice 7 Row failure.
+This intermediate note is superseded by the later current-commit relaunch evidence for Flint, Emery, and Gabbro, which proves PASS. No application defect is assigned from the earlier stale repetition/progression Row failure.
 
 ### Emery current-build Row final-transition regression
 
 The Emery mixed-progression run exposed a reproducible application failure after the otherwise valid path: Workout A, successful Squat, Bench first set reduced to `4` and recorded, remaining Bench sets completed, then Row `5x5 / 70 lb` completed with all five circles red. The screen remained on Row after more than five seconds. A subsequent Select produced `FINAL_SET_DUPLICATE_IGNORED e=2 set=4 reps=5 elapsed_ms=0`; no `FINAL_SET_ADVANCE`, completion overview, record creation, or ACK followed. Evidence: `12a5c65-emery-progression-complete.png` and `12a5c65-emery-row-stuck2.png`.
 
-Result: **FAIL**, owning slice **Slice 7**. This is a new reproducible failure in the current mixed-progression Row final-set path; it does not invalidate the separately captured cross-platform `saved=0` Row evidence, but Slice 7 cannot remain globally resolved for this scenario and the emulator gate remains rejected. No source was modified.
+Result: **FAIL**, owning slice **repetition/progression**. This is a new reproducible failure in the current mixed-progression Row final-set path; it does not invalidate the separately captured cross-platform `saved=0` Row evidence, but repetition/progression cannot remain globally resolved for this scenario and the emulator gate remains rejected. No source was modified.
 
 #### Emery Row retest correction
 
-The apparent Emery failure above was rechecked before retaining a defect assignment. The emulator clock was not advancing during the wait: the app remained at the final Row screen with the transition visible/armed, and the follow-up Select correctly logged `FINAL_SET_DUPLICATE_IGNORED`. After advancing Emery’s emulator time by 30 seconds with `pebble emu-set-time --emulator emery 1788461286`, the transition completed and the setup inspection showed Row `70 lb` (`12a5c65-emery-after-time-advance.png`). Therefore the earlier Emery observation was an emulator-time/timing artifact, not a reproducible application defect. The Slice 7 assignment is withdrawn; current Emery mixed progression is **PASS** for completion behavior, with full relaunch-value certification still pending.
+The apparent Emery failure above was rechecked before retaining a defect assignment. The emulator clock was not advancing during the wait: the app remained at the final Row screen with the transition visible/armed, and the follow-up Select correctly logged `FINAL_SET_DUPLICATE_IGNORED`. After advancing Emery’s emulator time by 30 seconds with `pebble emu-set-time --emulator emery 1788461286`, the transition completed and the setup inspection showed Row `70 lb` (`12a5c65-emery-after-time-advance.png`). Therefore the earlier Emery observation was an emulator-time/timing artifact, not a reproducible application defect. The repetition/progression assignment is withdrawn; current Emery mixed progression is **PASS** for completion behavior, with full relaunch-value certification still pending.
 
 ### Gabbro mixed progression and relaunch persistence
 
@@ -450,7 +450,7 @@ The Emery run was then cleared through the app’s controls. Setup inspection sh
 
 ## Final superseding classification
 
-The earlier Emery Row `FAIL` paragraph and the later statement that it corroborated a failure are superseded by the controlled clock-advance retest and the subsequent fresh Emery run. Emery Row final transition, mixed progression, and relaunch persistence are **PASS** when the emulator clock is advancing. The sole current emulator limitation observed was an invalid timing setup; no Slice 7 application defect remains assigned. Flint and Gabbro mixed progression and relaunch persistence are also **PASS**.
+The earlier Emery Row `FAIL` paragraph and the later statement that it corroborated a failure are superseded by the controlled clock-advance retest and the subsequent fresh Emery run. Emery Row final transition, mixed progression, and relaunch persistence are **PASS** when the emulator clock is advancing. The sole current emulator limitation observed was an invalid timing setup; no repetition/progression application defect remains assigned. Flint and Gabbro mixed progression and relaunch persistence are also **PASS**.
 
 The original physical-watch findings remain historical physical observations, not emulator verdicts. Emulator testing resolved the corresponding app behaviors for weight stepping, workout routing, final-set visibility, completion/ACK, History, Progress, and persistence; the physical report’s claims cannot be declared resolved on the actual watch without a new physical walkthrough. No source was modified.
 
@@ -474,7 +474,7 @@ This cross-check is the final evidence boundary: emulator findings are resolved 
 
 ## Final supersession notice
 
-Any earlier paragraph that says Emery or Gabbro mixed-progression relaunch evidence is open, that the emulator gate is rejected/open, or that Slice 7 remains failed is historical intermediate evidence only. It is superseded by the later `12a5c65` results: Emery and Gabbro mixed progression and relaunch persistence PASS; Slice 7 is resolved; and the emulator gate PASSED. This notice governs the report’s final classification.
+Any earlier paragraph that says Emery or Gabbro mixed-progression relaunch evidence is open, that the emulator gate is rejected/open, or that repetition/progression remains failed is historical intermediate evidence only. It is superseded by the later `12a5c65` results: Emery and Gabbro mixed progression and relaunch persistence PASS; repetition/progression is resolved; and the emulator gate PASSED. This notice governs the report’s final classification.
 
 ### Flint setup persistence spot-check
 
@@ -491,7 +491,7 @@ Tested build: commit `12a5c65b744567dc47565675fd64b7f16e17689e` (`Fix stale comp
 | Emery | PASS |
 | Gabbro | PASS |
 
-Final classification: Slice 7 **resolved**; Slice 11 **resolved**; completion/send/matching ACK/queue removal **PASS** on all three; mixed success/failure progression **PASS** on all three; relaunch persistence **PASS** on all three; History and Progress **PASS**. No current emulator application defect remains. All older failures, invalid navigation captures, incomplete statements, and intermediate gate-rejected conclusions elsewhere in this report are historical evidence only and are superseded by the later controlled current-commit results below. In particular, the later current-commit Emery and Gabbro progression/relaunch evidence supersedes any statement that those cases remain open.
+Final classification: repetition/progression **resolved**; Workout/UI interaction **resolved**; completion/send/matching ACK/queue removal **PASS** on all three; mixed success/failure progression **PASS** on all three; relaunch persistence **PASS** on all three; History and Progress **PASS**. No current emulator application defect remains. All older failures, invalid navigation captures, incomplete statements, and intermediate gate-rejected conclusions elsewhere in this report are historical evidence only and are superseded by the later controlled current-commit results below. In particular, the later current-commit Emery and Gabbro progression/relaunch evidence supersedes any statement that those cases remain open.
 
 Physical-watch testing may proceed using this exact fixture-free build.
 ## Targeted retest — 2026-09-09 physical findings
@@ -520,7 +520,7 @@ Exercise-weight editing was reached on all three platforms, but the plate persis
 
 ### Targeted-run classification
 
-- Weight adjustment: **FAIL** — reproducible emulator defect; assign to the setup/weight-adjustment subject (Slice 7).
+- Weight adjustment: **FAIL** — reproducible emulator defect; assign to the setup/weight-adjustment subject (repetition/progression).
 - History loading: **PASS** on Flint, Emery, and Gabbro for the observed populated calendar path.
 - Progress loading: **PASS** on Flint and Emery; **UNVERIFIED** on Gabbro because the scripted navigation entered Warmup. This is an incomplete targeted check, not evidence of a product failure.
 - Plate persistence: **UNVERIFIED** on all platforms in this run.
@@ -677,7 +677,7 @@ Valid held-button evidence now reproduces an application failure:
 - Emery: the valid 600 ms Up hold logged \`LONG_START\` → \`REPEAT\` → \`LONG_RELEASE\`, changing 800→840 internal units (+10 displayed lb). Evidence: \`963913fc-valid2-emery-subup.png\` and the Emery log session.
 - Gabbro: the valid 600 ms Up hold logged \`LONG_START\` → \`REPEAT\` → \`LONG_RELEASE\`, changing 680→720 internal units (+10 displayed lb). Evidence: \`963913fc-valid2-gabbro-subup.png\` and the Gabbro log session.
 
-This is a valid push/wait/release run and therefore is classified **FAIL**, not UNVERIFIED. The required subthreshold behavior was not met on any platform. P5 remains failed and the emulator gate remains **REJECTED**. No source was modified, no Slice 7 change was requested, and no physical installation was performed.
+This is a valid push/wait/release run and therefore is classified **FAIL**, not UNVERIFIED. The required subthreshold behavior was not met on any platform. P5 remains failed and the emulator gate remains **REJECTED**. No source was modified, no repetition/progression change was requested, and no physical installation was performed.
 ## Commit 201e7d8 P5 valid held-button retest — 2026-09-09
 
 Tested exact fixture-free checkout \`201e7d88a70c1d3a06c40eccfeb248f5e0fd045e\`. WSL2 preflight, build, and separate Flint/Emery/Gabbro installs passed, each reporting \`Installing app...\` and \`App install succeeded.\`.

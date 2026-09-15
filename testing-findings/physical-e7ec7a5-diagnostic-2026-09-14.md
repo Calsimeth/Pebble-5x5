@@ -14,7 +14,7 @@
 
 Raw bounded capture: `physical-e7ec7a5-logs.txt`.
 
-On app teardown/restart and boot, the watch reported `SYNC_RECORD_COMMITTED generation=1125 result=0 ... q=3`, then `SYNC_BOOT_STATE q=3 pending=1 blocked=0 adapter=0 ready=1` and attempted `SYNC_SEND`. The phone-side JS received `HISTORY_RECORD_RX id=1 workout=A`. The new Slice 9 diagnostics then reported:
+On app teardown/restart and boot, the watch reported `SYNC_RECORD_COMMITTED generation=1125 result=0 ... q=3`, then `SYNC_BOOT_STATE q=3 pending=1 blocked=0 adapter=0 ready=1` and attempted `SYNC_SEND`. The phone-side JS received `HISTORY_RECORD_RX id=1 workout=A`. The new persistence/synchronization diagnostics then reported:
 
 `HISTORY_STORE_REJECTED id=1 reason=id_conflict`
 

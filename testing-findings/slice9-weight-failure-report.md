@@ -1,4 +1,4 @@
-# Slice 9 physical weight persistence trace
+# persistence/synchronization physical weight persistence trace
 
 This is one continuous `pebble logs --phone 192.168.8.120` capture from the
 debug build, installed over the existing app with the unchanged UUID and no

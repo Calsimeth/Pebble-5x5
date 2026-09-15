@@ -1,4 +1,4 @@
-# Slice 9 physical persistence observations
+# persistence/synchronization physical persistence observations
 
 ## Scope
 

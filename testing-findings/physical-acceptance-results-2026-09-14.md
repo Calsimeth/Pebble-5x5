@@ -6,7 +6,7 @@
 - App shown: `5x5`
 - Phone connection: connected
 - Test time: 2026-09-14 09:50 local
-- Build identity: current installed release after the Slice 9 persistence fix; exact installed commit was not recorded in the completed checklist.
+- Build identity: current installed release after the persistence/synchronization persistence fix; exact installed commit was not recorded in the completed checklist.
 
 This report transcribes the direct physical-watch observations in [physical-watch-self-guided-checklist.md](physical-watch-self-guided-checklist.md). It does not infer success from emulator evidence.
 
@@ -28,15 +28,15 @@ This report transcribes the direct physical-watch observations in [physical-watc
 
 ## Important interpretation
 
-The phone-backed failures are direct physical UI failures: History and Progress did not resolve from `Loading` while the phone was connected. The workout-completion/synchronization state, however, was not established well enough to prove whether a completed record existed and was acknowledged. That underlying sync condition is therefore **UNVERIFIED**, not a confirmed Slice 9 defect.
+The phone-backed failures are direct physical UI failures: History and Progress did not resolve from `Loading` while the phone was connected. The workout-completion/synchronization state, however, was not established well enough to prove whether a completed record existed and was acknowledged. That underlying sync condition is therefore **UNVERIFIED**, not a confirmed persistence/synchronization defect.
 
 ## Failures by subject
 
-- Workout/UI: first Squat set defaults to `0` reps; first exercise advances directly into the next exercise’s warmup after its fifth set. Confirmed owners: Slice 7 and Slice 11 respectively.
+- Workout/UI: first Squat set defaults to `0` reps; first exercise advances directly into the next exercise’s warmup after its fifth set. Confirmed owners: repetition/progression and Workout/UI interaction respectively.
 - Rest/vibration: no failed accepted behavior. A `5:00` vibration is a requested enhancement.
 - Setup: no confirmed failure. The hold-delay comment is usability feedback.
 - Persistence/synchronization: UNVERIFIED; `Not Synced` was recorded, but no record/ACK evidence was captured.
-- History/Progress: History and Progress remained on `Loading` despite a connected phone. Provisional owner: Slice 12, pending confirmation with a known completed/synchronized record.
+- History/Progress: History and Progress remained on `Loading` despite a connected phone. Provisional owner: History/Progress, pending confirmation with a known completed/synchronized record.
 
 ## Overall physical acceptance
 

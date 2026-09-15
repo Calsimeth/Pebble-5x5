@@ -15,7 +15,7 @@ Slice nine adds bounded, offline-first history synchronization. Completed record
 
 The intended product is one installable Pebble watchapp with a bundled PebbleKit JS component that runs inside the official Pebble Android app. Users must not need to install or sideload a separate Android companion application.
 
-The watch must remain useful without a phone connection. The bundled phone-side component may retain longer-term history and synchronize with the watch when available. Import and export are unsupported in this release: Slice 10 found no documented PebbleKit JS file-picker, file-writer, or Android share API. See [the feasibility report](docs/import-export-feasibility.md).
+The watch must remain useful without a phone connection. The bundled phone-side component may retain longer-term history and synchronize with the watch when available. Import and export are unsupported in this release: import/export feasibility found no documented PebbleKit JS file-picker, file-writer, or Android share API. See [the feasibility report](docs/import-export-feasibility.md).
 
 ## Current status
 

@@ -1,4 +1,4 @@
-# Slice 10: import/export feasibility
+# import/export feasibility: import/export feasibility
 
 Status: investigated 2026-08-31. No user-facing import or export was implemented.
 
@@ -17,7 +17,7 @@ The official StrongLifts CSV remains the only intended import format, but parser
 
 ## Experiment and constraints
 
-The committed Slice 9 `src/pkjs/index.js` and `package.json` were inspected against that API surface. The implementation has only AppMessage input and app-scoped `localStorage` output, split into history chunks and an index. No file, picker, URI, intent, or share primitive exists in the project or examined documentation. The existing dependency-free sync tests provide no CSV fixture. A physical-device experiment cannot demonstrate a supported workflow without a documented API boundary; undocumented OEM behavior would not justify a compatibility claim.
+The committed persistence/synchronization `src/pkjs/index.js` and `package.json` were inspected against that API surface. The implementation has only AppMessage input and app-scoped `localStorage` output, split into history chunks and an index. No file, picker, URI, intent, or share primitive exists in the project or examined documentation. The existing dependency-free sync tests provide no CSV fixture. A physical-device experiment cannot demonstrate a supported workflow without a documented API boundary; undocumented OEM behavior would not justify a compatibility claim.
 
 | User flow | Result | Reason |
 | --- | --- | --- |
@@ -32,4 +32,4 @@ The committed Slice 9 `src/pkjs/index.js` and `package.json` were inspected agai
 
 ## Product decision
 
-Ship Slice 10 as documentation-only. Keep StrongLifts CSV import/export unsupported and aspirational until official platform support exposes a clean user-controlled file/share workflow and a representative legally usable fixture is available. No separate Android application or undocumented bridge should be added.
+Ship import/export feasibility as documentation-only. Keep StrongLifts CSV import/export unsupported and aspirational until official platform support exposes a clean user-controlled file/share workflow and a representative legally usable fixture is available. No separate Android application or undocumented bridge should be added.

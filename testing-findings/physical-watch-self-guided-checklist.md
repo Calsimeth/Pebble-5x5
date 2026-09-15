@@ -1,6 +1,6 @@
 # Pebble Time 2: self-guided acceptance checklist
 
-Use this whenever convenient. No live conversation or log session is required. This is for the release app already installed after the Slice 9 persistence fix. The weight edit → exit → relaunch check passed on September 14 and need not be repeated unless it fails again.
+Use this whenever convenient. No live conversation or log session is required. This is for the release app already installed after the persistence/synchronization persistence fix. The weight edit → exit → relaunch check passed on September 14 and need not be repeated unless it fails again.
 
 ## September 15 focused follow-up
 

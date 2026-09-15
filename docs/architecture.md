@@ -116,7 +116,7 @@ The canonical wire fixtures are generated from the production encoder with `gcc 
 
 ## Import/export boundary
 
-StrongLifts CSV compatibility remains an unsupported, aspirational capability. Slice 10 found no documented PebbleKit JS or official Pebble Android API for selecting a local file, receiving a content URI, writing a user-accessible file, or opening the Android share sheet. See [the Slice 10 feasibility report](import-export-feasibility.md).
+StrongLifts CSV compatibility remains an unsupported, aspirational capability. import/export feasibility found no documented PebbleKit JS or official Pebble Android API for selecting a local file, receiving a content URI, writing a user-accessible file, or opening the Android share sheet. See [the import/export feasibility feasibility report](import-export-feasibility.md).
 
 The internal model should nevertheless be rich enough to represent the fields in a StrongLifts export so that a future migration utility can be built without redesigning history storage.
 
