@@ -17,14 +17,14 @@ This report transcribes the direct physical-watch observations in [physical-watc
 | Home / Setup entry | PASS | Home and Setup navigation passed. | — |
 | Weight adjustment | PASS with usability note | Squat `110 lb` → `115 lb` on one Up tap. Holding repeated controllably and stopped on release. The initial hold delay felt somewhat long. | No defect confirmed; product-feedback note only. |
 | Workout choice | PASS | Workout choice check passed. | — |
-| First work-set default | FAIL | “First squat set defaults to 0 reps.” | Slice 7 (repetition entry/default state). |
-| Exercise-end transition | FAIL | After the fifth first-exercise set, the next exercise’s warmup appeared immediately. Caleb expected a separate acknowledgement before beginning the next exercise so equipment/location can be changed. He reports later exercise transitions did not show the same behavior. | Slice 11 (workout/UI transition). |
+| First work-set default | FAIL | “First squat set defaults to 0 reps.” | Repetition entry/default state. |
+| Exercise-end transition | FAIL | After the fifth first-exercise set, the next exercise’s warmup appeared immediately. The direct physical observation expected a separate acknowledgement before beginning the next exercise so equipment/location can be changed. The direct physical observation reports later exercise transitions did not show the same behavior. | Workout/UI transition. |
 | Failed-set entry | PASS | Fewer-than-five repetitions recorded as expected. | — |
-| Rest timing / cues | PASS with request | Rest behavior passed. Caleb requested that the halfway vibration also occur at `5:00`; this is a new product request, not a failed stated behavior. | No defect confirmed. |
-| Final-circle visibility | PASS | Final circle was observed before advancement. Caleb clarified the expected behavior should apply to every exercise, not only the last exercise. | — |
+| Rest timing / cues | PASS with request | Rest behavior passed. The direct physical observation requested that the halfway vibration also occur at `5:00`; this is a new product request, not a failed stated behavior. | No defect confirmed. |
+| Final-circle visibility | PASS | Final circle was observed before advancement. The direct physical observation clarified the expected behavior should apply to every exercise, not only the last exercise. | — |
 | Completion and synchronization | UNVERIFIED | Checklist says `Not known`; exact text recorded as `Not Synced`. There is no confirmed completed-record ID, ACK, or queue-cleared evidence. | Not assigned without a reproducible completed-record/sync trace. |
-| History | FAIL | First History press did nothing. Second press showed `Loading`, then did not resolve. Phone was connected. | Slice 12 (History query/rendering), subject to confirmation after a known completed and synchronized record exists. |
-| Progress | FAIL | Selecting a completed exercise showed `Loading` and did not resolve. Phone was connected. | Slice 12 (Progress query/rendering), subject to confirmation after a known completed and synchronized record exists. |
+| History | FAIL | First History press did nothing. Second press showed `Loading`, then did not resolve. Phone was connected. | History query/rendering, subject to confirmation after a known completed and synchronized record exists. |
+| Progress | FAIL | Selecting a completed exercise showed `Loading` and did not resolve. Phone was connected. | Progress query/rendering, subject to confirmation after a known completed and synchronized record exists. |
 
 ## Important interpretation
 

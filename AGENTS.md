@@ -9,7 +9,7 @@ The Pebble SDK is Linux-only. Do not run `pebble build`, `pebble install`, or an
 Every Pebble command must run inside Ubuntu WSL 2 using this command shape:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble build'
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/<WINDOWS_USER>/Documents/repos/Pebble Stronglifts"; pebble build'
 ```
 
 Keep the outer command in single quotes. This is required so `$HOME` and `$PATH` expand inside Ubuntu rather than in PowerShell.
@@ -76,14 +76,14 @@ After the preflight succeeds:
 
 The Windows checkout remains the shared source tree. Edit files there, but execute Linux-dependent commands through Ubuntu WSL.
 
-## Install on Caleb's physical Pebble
+## Install on the user's physical Pebble
 
 Use the local Android Pebble Developer Connection, not CloudPebble. On the phone, enable Developer Mode and Developer Connection and leave that screen enabled during installation. The currently assigned phone/server address is `192.168.8.129`.
 
 After the required WSL preflight and a successful build, first try the direct installation from PowerShell:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble install --phone 192.168.8.129'
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/<WINDOWS_USER>/Documents/repos/Pebble Stronglifts"; pebble install --phone 192.168.8.129'
 ```
 
 Success must include `Installing app...` followed by `App install succeeded.` Do not claim installation from a successful build alone.
@@ -104,7 +104,7 @@ node -e "const net=require('net'); const server=net.createServer(a=>{const b=net
 After that separate PowerShell process prints `RELAY_READY`, run:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble install --phone 172.30.32.1'
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/<WINDOWS_USER>/Documents/repos/Pebble Stronglifts"; pebble install --phone 172.30.32.1'
 ```
 
 Do not misdiagnose this verified routing case as a closed phone port, require Ethernet disconnection, or switch to GitHub/CloudPebble without first testing the phone port through the active Wi-Fi source address.

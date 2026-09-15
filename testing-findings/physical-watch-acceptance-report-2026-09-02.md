@@ -97,7 +97,7 @@ For commit `12a5c65b744567dc47565675fd64b7f16e17689e`, the required WSL2 preflig
 
 ## 2026-09-09 address update
 
-Caleb reported the active Developer Connection at `192.168.8.120`. Using the exact fixture-free commit `12a5c65b744567dc47565675fd64b7f16e17689e`, WSL preflight passed and direct installation to `192.168.8.120` succeeded:
+The direct physical observation reported the active Developer Connection at `192.168.8.120`. Using the exact fixture-free commit `12a5c65b744567dc47565675fd64b7f16e17689e`, WSL preflight passed and direct installation to `192.168.8.120` succeeded:
 
 ```
 Installing app...

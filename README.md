@@ -65,13 +65,13 @@ Each worker shell must expose the user-local Node.js runtime, SDK webpack launch
 
 ```sh
 export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"
-cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"
+cd "/mnt/c/Users/<WINDOWS_USER>/Documents/repos/Pebble Stronglifts"
 ```
 
 From PowerShell or an automated worker, wrap the Linux commands with `wsl -d Ubuntu -- bash -lc`. Keep the Linux command in single quotes so `$HOME` and `$PATH` expand inside WSL:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble build'
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/<WINDOWS_USER>/Documents/repos/Pebble Stronglifts"; pebble build'
 ```
 
 ### WSL `E_ACCESSDENIED` workaround
@@ -97,12 +97,12 @@ pebble install --emulator gabbro
 
 Workers must report the build and emulator result for each target. They should not commit `/build/`, `.lock-waf_linux_build`, SDK files, emulator state, or other generated output. If an emulator command hangs, stop only that command and retry the affected platform; a transient WebSocket disconnect does not imply a source or build failure.
 
-### Load the app onto Caleb's watch
+### Load the app onto the physical watch
 
 On the Android phone, enable Pebble Developer Mode and Developer Connection and keep the Developer Connection screen active. Its current server IP is `192.168.8.129`. Build and install from Ubuntu WSL—never run the Pebble SDK directly in Windows:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble build && pebble install --phone 192.168.8.129'
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/<WINDOWS_USER>/Documents/repos/Pebble Stronglifts"; pebble build && pebble install --phone 192.168.8.129'
 ```
 
 The installation is complete only when the command prints `App install succeeded.`
@@ -118,7 +118,7 @@ node -e "const net=require('net'); const server=net.createServer(a=>{const b=net
 Then install from the repository PowerShell window:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble install --phone 172.30.32.1'
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/<WINDOWS_USER>/Documents/repos/Pebble Stronglifts"; pebble install --phone 172.30.32.1'
 ```
 
 Those interface addresses can change; obtain current values with Windows `ipconfig` and WSL `ip route`. Stop the bridge immediately after installation. Detailed worker instructions are in [AGENTS.md](AGENTS.md).
