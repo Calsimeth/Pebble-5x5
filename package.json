@@ -1,6 +1,6 @@
 {
-  "name": "pebble-stronglifts",
-  "author": "Pebble StrongLifts",
+  "name": "5x5",
+  "author": "Caleb",
   "version": "0.1.0",
   "keywords": ["pebble-app"],
   "private": true,
@@ -11,7 +11,7 @@
   },
   "dependencies": {},
   "pebble": {
-    "displayName": "StrongLifts",
+    "displayName": "5x5",
     "uuid": "8e2d6c6f-54ee-4f4a-ae6c-7e6cf6b4c8c1",
     "sdkVersion": "3",
     "enableMultiJS": true,

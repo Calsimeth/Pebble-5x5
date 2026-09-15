@@ -15,7 +15,7 @@ def build(ctx):
     fixture = os.environ.get('STRONGLIFTS_VISUAL_FIXTURES')
     debug = os.environ.get('STRONGLIFTS_DEBUG')
     if debug:
-        print('StrongLifts DEBUG build enabled (UUID unchanged; persistence preserved)')
+        print('5x5 DEBUG build enabled (UUID unchanged; persistence preserved)')
     binaries = []
     cached_env = ctx.env
     for platform in ctx.env.TARGET_PLATFORMS:

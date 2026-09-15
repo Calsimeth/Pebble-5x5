@@ -1,6 +1,6 @@
-# Pebble StrongLifts
+# 5x5
 
-Pebble StrongLifts is a proposed workout tracker for the current Pebble watch lineup. It is intentionally limited to the standard StrongLifts 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
+5x5 is a workout tracker for the current Pebble watch lineup. It supports a classic 5x5 Workout A and Workout B flow and is designed for fast, low-distraction use while lifting.
 
 Slice nine adds bounded, offline-first history synchronization. Completed records use three queued records plus one pending completion; a fifth completion is blocked before its final repetitions are written and remains visibly `Sync Required` until capacity frees. Selected repetitions persist across restart. IDs skip retained records, duplicates are classified as identical or conflicting, and phone orphan chunks are reconciled without overwriting. CSV import/export remains out of scope.
 
@@ -97,11 +97,37 @@ pebble install --emulator gabbro
 
 Workers must report the build and emulator result for each target. They should not commit `/build/`, `.lock-waf_linux_build`, SDK files, emulator state, or other generated output. If an emulator command hangs, stop only that command and retry the affected platform; a transient WebSocket disconnect does not imply a source or build failure.
 
+### Load the app onto Caleb's watch
+
+On the Android phone, enable Pebble Developer Mode and Developer Connection and keep the Developer Connection screen active. Its current server IP is `192.168.8.129`. Build and install from Ubuntu WSL—never run the Pebble SDK directly in Windows:
+
+```powershell
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble build && pebble install --phone 192.168.8.129'
+```
+
+The installation is complete only when the command prints `App install succeeded.`
+
+If WSL reports `No route to host` while Windows can reach port `9000` when explicitly bound to Wi-Fi, WSL is traversing the wrong Windows interface. Use a temporary TCP bridge listening on the Windows gateway visible to WSL and bind the bridge's phone-facing socket to the active Windows Wi-Fi IPv4 address. Then give the gateway address to `pebble install --phone`. On the verified 2026-08-31 network, Wi-Fi was `192.168.8.182`, the WSL gateway was `172.30.32.1`, and this command completed the installation:
+
+In a separate PowerShell window, start the bridge and wait for `RELAY_READY`:
+
+```powershell
+node -e "const net=require('net'); const server=net.createServer(a=>{const b=net.createConnection({host:'192.168.8.129',port:9000,localAddress:'192.168.8.182'},()=>{console.log('RELAY_CONNECTED');a.pipe(b);b.pipe(a)}); const stop=()=>server.close(()=>process.exit()); a.on('close',stop); b.on('close',stop); b.on('error',e=>{console.error(e.message);stop()})}); server.listen(9000,'172.30.32.1',()=>console.log('RELAY_READY'))"
+```
+
+Then install from the repository PowerShell window:
+
+```powershell
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble install --phone 172.30.32.1'
+```
+
+Those interface addresses can change; obtain current values with Windows `ipconfig` and WSL `ip route`. Stop the bridge immediately after installation. Detailed worker instructions are in [AGENTS.md](AGENTS.md).
+
 Slice seven adds five-repetition work-set entry (including valid zero-rep failures), persisted active-workout weight snapshots and per-set results, independent exercise progression, and consecutive-failure streaks. Successful exercises advance to the first achievable target at least 5 lb heavier; failed exercises repeat their weight. Warm-ups remain separate from progression. Schema version 6 migrates active version-5 workouts, preserving completed work sets and repairing expired rests.
 
 Slice eight adds optional deload guidance. Three consecutive failures or a gap of more than seven days can suggest an independently calculated, achievable reduction of about 10%; the user can accept, adjust, decline, or back out. Recommendations never silently change weights, and gap reviews are recorded. Accepted deload counts support a dismissible, persisted plateau advisory that becomes eligible again after a new qualifying failure cycle. Schema version 8 explicitly migrates the exact schema-seven layout, preserving active workouts, rest timers, weights, repetitions, progression, warm-ups, timestamps, and deload fields while initializing newer advisory and sync fields.
 
-The current working tree is host-tested in Ubuntu WSL, builds for Flint, Emery, and Gabbro, and has been installed on each of those emulators. Physical Android/Pebble connection validation remains unperformed.
+The working tree has been built in Ubuntu WSL, installed on Flint, Emery, and Gabbro, and physically installed through the Android Pebble Developer Connection. This documents installation transport success, not exhaustive physical-device behavior validation.
 
 Slice nine uses schema 9: three queued records plus one pending completion, with a fifth completion blocked before its final-set repetitions are written. Selected repetitions and the blocked state survive restart; IDs are repaired against queued and pending records with zero-skipping wraparound. The v1 JSON wire shape is `v,id,t,w,e,wt,r,c,d`, sent through AppMessage and acknowledged only after phone chunk and index storage. Retries use 5, 15, 30, 60, then 60 seconds. Phone storage scans all chunk keys, preserves corrupt/orphan data, and repairs interrupted index writes without pruning.
 
