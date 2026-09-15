@@ -8,6 +8,16 @@ int main(void) {
   RestState r = {.active=1, .start=1000};
   assert(rest_alerts_due(&r, 1090) == 1);
   assert(rest_alerts_due(&r, 1180) == 2);
+  assert(rest_alerts_due(&r, 1299) == 0);
+  assert(rest_alerts_due(&r, 1300) == 4);
+  assert(rest_alerts_due(&r, 1400) == 0);
+  rest_begin(&r, 2000);
+  assert(r.halfway_alerted == 0 && r.completion_alerted == 0 && r.five_minute_alerted == 0);
+  assert(rest_alerts_due(&r, 2299) == 3);
+  assert(rest_alerts_due(&r, 2300) == 4);
+  assert(r.five_minute_alerted == 1);
+  assert(rest_alerts_due(&r, 2600) == 0);
+  r.five_minute_alerted = 1; rest_reset(&r); assert(!r.active && !r.five_minute_alerted);
   assert(rest_alerts_due(&r, 1301) == 0);
 
   /* Persisted alert flags remain one-shot across a restart. */

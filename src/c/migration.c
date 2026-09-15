@@ -13,6 +13,7 @@ int migrate_v9_to_v10(const PersistedStateV9 *old, PersistedState *out, int32_t 
   out->rest_end=0; out->rest_elapsed=rest_elapsed(old->rest_start,now);
   out->selected_reps = old->selected_reps;
   out->completion_alerted = out->rest_elapsed >= 180;
+  out->five_minute_alerted = out->rest_elapsed >= 300;
   workout_state_repair_sync(out);
   return 1;
 }

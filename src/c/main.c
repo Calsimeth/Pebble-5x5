@@ -456,6 +456,7 @@ static void clear_rest(void) {
   s_state.rest_end = 0;
   s_state.halfway_alerted = 0;
   s_state.completion_alerted = 0;
+  s_state.five_minute_alerted = 0;
   s_state.rest_elapsed = 0;
 }
 
@@ -472,9 +473,9 @@ static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
     update_display();
     return;
   }
-  RestState rest = { .active=s_state.rest_active, .halfway_alerted=s_state.halfway_alerted, .completion_alerted=s_state.completion_alerted, .start=s_state.rest_start, .elapsed=s_state.rest_elapsed };
+  RestState rest = { .active=s_state.rest_active, .halfway_alerted=s_state.halfway_alerted, .completion_alerted=s_state.completion_alerted, .five_minute_alerted=s_state.five_minute_alerted, .start=s_state.rest_start, .elapsed=s_state.rest_elapsed };
   int alerts = rest_alerts_due(&rest, (int32_t)now);
-  s_state.rest_elapsed = rest.elapsed; s_state.halfway_alerted = rest.halfway_alerted; s_state.completion_alerted = rest.completion_alerted;
+  s_state.rest_elapsed = rest.elapsed; s_state.halfway_alerted = rest.halfway_alerted; s_state.completion_alerted = rest.completion_alerted; s_state.five_minute_alerted = rest.five_minute_alerted;
   if (alerts & 1) {
     vibes_short_pulse();
     save_state();
@@ -521,7 +522,7 @@ static bool loaded_state_valid(const PersistedState *state) {
   if (!state || state->schema_version != STORAGE_SCHEMA_VERSION || !workout_state_valid(state) ||
       state->completion_blocked > 1 || state->selected_reps > 5 || state->next_workout > WORKOUT_B ||
       state->active_workout > WORKOUT_B || state->active > 1 || state->rest_active > 1 ||
-      state->halfway_alerted > 1 || state->completion_alerted > 1 || !valid_advisory_state()) return false;
+      state->halfway_alerted > 1 || state->completion_alerted > 1 || state->five_minute_alerted > 1 || !valid_advisory_state()) return false;
   if (state->active && (state->exercise_index >= 3 ||
       state->set_index >= WORKOUTS[state->active_workout][state->exercise_index].sets)) return false;
   if (state->rest_active && (!state->active || state->exercise_index >= 3 ||
@@ -1119,6 +1120,7 @@ static void complete_set(void) {
     s_state.rest_elapsed = 0;
     s_state.halfway_alerted = 0;
     s_state.completion_alerted = 0;
+    s_state.five_minute_alerted = 0;
     save_state();
     start_rest_services();
     update_display();
