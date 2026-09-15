@@ -359,8 +359,10 @@ static void resume_deferred_query(void) { if(s_deferred_query[0] && !sync_queue_
 static void query_timeout(void *ctx){(void)ctx;s_query_timer=NULL;if(s_query_controller.state==QUERY_DEFERRED) query_controller_deferred_timeout(&s_query_controller); else query_controller_fail(&s_query_controller);s_query_connected=false;s_calendar_valid=false;s_deferred_query[0]=0;APP_LOG(APP_LOG_LEVEL_INFO,"QUERY_TIMEOUT state=PhoneNeeded");send_oldest();update_display();}
 
 static void workout_layer_update(Layer *layer, GContext *ctx) {
-  if (!s_state.active || (s_state.warmup_active && !s_confirm_abandon) || s_screen != SCREEN_WORKOUT) return;
-  GRect b = layer_get_bounds(layer); uint8_t sets = WORKOUTS[s_state.active_workout][s_state.exercise_index].sets;
+  if (!s_state.active || (s_state.warmup_active == 1 && !s_confirm_abandon) || s_screen != SCREEN_WORKOUT) return;
+  bool handoff = s_state.warmup_active == 2;
+  uint8_t display_exercise = handoff ? (uint8_t)(s_state.exercise_index - 1) : s_state.exercise_index;
+  GRect b = layer_get_bounds(layer); uint8_t sets = WORKOUTS[s_state.active_workout][display_exercise].sets;
   WorkoutCircleLayout circles = workout_circle_layout(b.size.w, b.size.h, sets);
   int16_t circle_diameter = circles.diameter, circle_gap = circles.gap, circle_x = circles.x;
   if (!PBL_IF_COLOR_ELSE(true, false) && sets == 5) {
@@ -481,6 +483,7 @@ static void rest_tick(struct tm *tick_time, TimeUnits units_changed) {
     vibes_enqueue_custom_pattern(REST_COMPLETE_PATTERN);
     save_state();
   }
+  if (alerts & 4) { vibes_short_pulse(); save_state(); }
   update_display();
 }
 
