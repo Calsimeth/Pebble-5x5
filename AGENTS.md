@@ -75,3 +75,36 @@ After the preflight succeeds:
 5. Do not commit `build/`, `.lock-waf_linux_build`, SDK files, emulator state, or generated test binaries.
 
 The Windows checkout remains the shared source tree. Edit files there, but execute Linux-dependent commands through Ubuntu WSL.
+
+## Install on Caleb's physical Pebble
+
+Use the local Android Pebble Developer Connection, not CloudPebble. On the phone, enable Developer Mode and Developer Connection and leave that screen enabled during installation. The currently assigned phone/server address is `192.168.8.129`.
+
+After the required WSL preflight and a successful build, first try the direct installation from PowerShell:
+
+```powershell
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble install --phone 192.168.8.129'
+```
+
+Success must include `Installing app...` followed by `App install succeeded.` Do not claim installation from a successful build alone.
+
+If the direct command reports `No route to host`, Windows may have two interfaces on `192.168.8.0/24` and WSL may select the wrong one. Verify the phone's port from Windows using a `TcpClient` explicitly bound to the active Wi-Fi IPv4 address. If it is open, use a temporary byte-for-byte TCP bridge:
+
+1. Determine the current Wi-Fi IPv4 address with `ipconfig` and the current WSL Windows-gateway address with `ip route` inside Ubuntu. Do not assume the example addresses remain unchanged.
+2. Start a temporary Node TCP server on port `9000` at the WSL gateway. Its outbound `net.createConnection` must set `localAddress` to the Windows Wi-Fi IPv4 address and connect to the phone on port `9000`.
+3. Run the normal WSL command above, but pass the WSL gateway to `--phone`.
+4. Stop the bridge after installation. It must not remain as a background process.
+
+The bridge proven on 2026-08-31 used Windows Wi-Fi `192.168.8.182`, WSL gateway `172.30.32.1`, and phone `192.168.8.129`. The install command was:
+
+```powershell
+node -e "const net=require('net'); const server=net.createServer(a=>{const b=net.createConnection({host:'192.168.8.129',port:9000,localAddress:'192.168.8.182'},()=>{console.log('RELAY_CONNECTED');a.pipe(b);b.pipe(a)}); const stop=()=>server.close(()=>process.exit()); a.on('close',stop); b.on('close',stop); b.on('error',e=>{console.error(e.message);stop()})}); server.listen(9000,'172.30.32.1',()=>console.log('RELAY_READY'))"
+```
+
+After that separate PowerShell process prints `RELAY_READY`, run:
+
+```powershell
+wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share/pebble-sdk/SDKs/current/node_modules/.bin:$HOME/.local/bin:$PATH"; cd "/mnt/c/Users/Caleb/Documents/repos/Pebble Stronglifts"; pebble install --phone 172.30.32.1'
+```
+
+Do not misdiagnose this verified routing case as a closed phone port, require Ethernet disconnection, or switch to GitHub/CloudPebble without first testing the phone port through the active Wi-Fi source address.
