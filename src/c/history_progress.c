@@ -16,3 +16,17 @@ bool progress_chunk_add(ProgressAssembly *a,uint16_t q,uint8_t exercise,uint8_t 
 bool progress_assembly_complete(const ProgressAssembly *a){return a&&a->received==a->count;}
 int graph_coordinate(int32_t v,int32_t min,int32_t max,int h){if(h<=0)return 0;if(max<=min)return h/2;if(v<=min)return h-1;if(v>=max)return 0;return (int)(((int64_t)(max-v)*(h-1))/(max-min));}
 int graph_x_coordinate(uint8_t index,uint8_t count,int width){if(width<=0||!count||index>=count)return 0;return count==1?width/2:(int)((int64_t)index*(width-1)/(count-1));}
+void graph_axis_bounds(int32_t observed_min,int32_t observed_max,bool includes_zero,int32_t *axis_min,int32_t *axis_max){
+  if(!axis_min||!axis_max)return;
+  if(observed_max<observed_min){*axis_min=*axis_max=0;return;}
+  int32_t lo=observed_min,hi=observed_max;
+  int32_t span=hi-lo;
+  if(!span){lo-=25;hi+=25;}
+  else {int32_t pad=span/10;if(pad<5)pad=5;lo-=pad;hi+=pad;}
+  lo=(lo/25)*25; if(lo>observed_min)lo-=25;
+  hi=((hi+24)/25)*25; if(hi<observed_max)hi+=25;
+  if(includes_zero){if(lo>0)lo=0;if(hi<0)hi=0;}
+  else {if(observed_min>0&&lo<=0)lo=observed_min;if(observed_max<0&&hi>=0)hi=observed_max;}
+  if(hi<=lo)hi=lo+25;
+  *axis_min=lo;*axis_max=hi;
+}
