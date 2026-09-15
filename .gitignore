@@ -2,6 +2,18 @@
 /build/
 /.generated/
 /.pebble/
+/.lock-waf_linux_build
+
+# Local emulator/physical-watch capture backlog. Curated evidence that is
+# already tracked remains versioned; new captures stay out of the repository
+# unless deliberately forced into Git.
+/*.png
+/screenshots/*.png
+/testing-findings/*.png
+/testing-findings/acceptance-2026-09-02/
+/*.log
+/testing-findings/*.log
+/testing-findings/*-logs.txt
 
 # JavaScript dependencies and logs
 /node_modules/
