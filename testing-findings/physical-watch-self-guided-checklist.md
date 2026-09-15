@@ -4,7 +4,7 @@ Use this whenever convenient. No live conversation or log session is required. T
 
 ## September 15 focused follow-up
 
-- **Five-minute rest alert: Pass.** The physical watch emitted the requested brief vibration at `5:00`.
+- **Five-minute rest alert: Pass.** The physical watch emitted the requested brief vibration at `5:00`; the relaunch follow-up confirmed the one-shot behavior remained correct.
 - **Exercise handoff prompt: Pass after `c5f429c`.** After a non-final exercise, the watch retained all five completed circles and visibly showed the next exercise with `SELECT to begin`. Pressing Select started the next warmup.
 
 These two items are complete and do not need to be repeated unless they regress.
