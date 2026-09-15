@@ -108,3 +108,20 @@ wsl -d Ubuntu -- bash -lc 'export PATH="$HOME/.local/node/bin:$HOME/.local/share
 ```
 
 Do not misdiagnose this verified routing case as a closed phone port, require Ethernet disconnection, or switch to GitHub/CloudPebble without first testing the phone port through the active Wi-Fi source address.
+
+## File-placement and repository hygiene
+
+Keep the repository root limited to project-level files: `README.md`, `AGENTS.md`, `package.json`, `wscript`, `.gitignore`, and the top-level source, test, documentation, and evidence directories. Do not leave screenshots, logs, build output, SDK files, emulator state, or one-off scripts in the root.
+
+Use these locations:
+
+- Application code belongs in `src/`; host tests and test fixtures belong in `tests/`.
+- Product and developer documentation belongs in `docs/` or `README.md`.
+- Curated acceptance reports, checklists, and walkthroughs belong in `testing-findings/`.
+- Curated screenshots that are deliberately committed belong beside their report under `testing-findings/` or in `screenshots/`. Prefer descriptive, stable names and link them from the report.
+- Raw or exploratory screenshots belong in the ignored `testing-findings/root-captures/` folder. Do not commit them unless a report explicitly requires that exact capture as durable evidence.
+- Raw diagnostic logs belong in the ignored `testing-findings/root-logs/` folder. If a log is required to reproduce or audit a result, link it from a committed report and deliberately force-add only that log.
+- Pebble build output, `.lock-waf_linux_build`, emulator state, generated binaries, and temporary SDK artifacts belong in the ignored `.local-artifacts/` folder or the SDK-managed locations. Never commit them.
+- Temporary exports, local workout data, and personal configuration belong in the already-ignored `exports/`, `local-data/`, or `.env` files.
+
+Before finishing a task, inspect `git status --short`, move any newly generated root files into the appropriate ignored folder, and update report links if a tracked artifact was relocated. Preserve and commit only authoritative source, documentation, tests, and intentionally curated evidence. Do not use broad cleanup commands or delete ambiguous files merely to make the status look clean.
